@@ -35,7 +35,7 @@ public class PinpointTuner extends OpMode {
     private double yOffsetMm = 156.0;
 
     // encoder directions
-    private boolean xEncoderReversed = false;
+    private boolean xEncoderReversed = true;
     private boolean yEncoderReversed = false;
 
     // step sizes
