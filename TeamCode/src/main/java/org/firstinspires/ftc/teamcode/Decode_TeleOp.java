@@ -6,8 +6,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
-@TeleOp(name = "DecodeTeleOp")
-public class DecodeTeleOp extends LinearOpMode {
+@TeleOp(name = "Decode_TeleOp")
+public class Decode_TeleOp extends LinearOpMode {
     
     // Hardware components
     private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive,
