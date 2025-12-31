@@ -8,7 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
-import org.firstinspires.ftc.teamcode.GoBildaPinpointDriver;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
 @TeleOp(name = "Pinpoint Tuner")
 public class PinpointTuner extends OpMode {
@@ -31,16 +31,16 @@ public class PinpointTuner extends OpMode {
 
     
     // offsets in mm
-    private double xOffsetMm = 0.0;
-    private double yOffsetMm = 0.0;
+    private double xOffsetMm = 52.0;
+    private double yOffsetMm = 156.0;
 
     // encoder directions
     private boolean xEncoderReversed = false;
     private boolean yEncoderReversed = false;
 
     // step sizes
-    private double coarseStep = 10.0;   // mm
-    private double fineStep   = 1.0;    // mm
+    private final double coarseStep = 10.0;   // mm
+    private final double fineStep   = 1.0;    // mm
 
     // toggle for coarse / fine
     private boolean coarseMode = true;
@@ -70,6 +70,11 @@ public class PinpointTuner extends OpMode {
         leftFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightBackDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         rightFrontDrive.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
+        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
+        rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
+        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
 
         pinpoint.setEncoderResolution(GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD);
 
@@ -174,8 +179,22 @@ public class PinpointTuner extends OpMode {
 
         // B: zero just the estimated pose (keep IMU calibration)
         if (gamepad1.b && !lastB) {
-            // setPosition to 0,0,0 in mm/radians
-            pinpoint.setPosition(0, 0, 0);
+            // Get current heading (in degrees or radians — just match the AngleUnit below)
+            Pose2D currentPose = pinpoint.getPosition();
+            double currentHeadingDeg = currentPose.getHeading(AngleUnit.DEGREES);
+
+            // Build a new Pose2D at (0, 0) with the same heading
+            Pose2D zeroedPose =
+                    new Pose2D(
+                            DistanceUnit.MM,
+                            0.0,
+                            0.0,
+                            AngleUnit.DEGREES,
+                            currentHeadingDeg
+                    );
+
+            // Apply it to Pinpoint
+            pinpoint.setPosition(zeroedPose);
         }
 
         // Used for change detection
@@ -195,13 +214,13 @@ public class PinpointTuner extends OpMode {
         GoBildaPinpointDriver.DeviceStatus status = pinpoint.getDeviceStatus();
     
         // Pose in mm and degrees
-        var pose = pinpoint.getPosition();
+        Pose2D pose = pinpoint.getPosition();
         double xMm   = pose.getX(DistanceUnit.MM);
         double yMm   = pose.getY(DistanceUnit.MM);
         double hDeg  = pose.getHeading(AngleUnit.DEGREES);
     
         // Velocity in mm/sec and deg/sec
-        var vel = pinpoint.getVelocity();
+        Pose2D vel = pinpoint.getVelocity();
         double vxMm  = vel.getX(DistanceUnit.MM);
         double vyMm  = vel.getY(DistanceUnit.MM);
         double vhDeg = vel.getHeading(AngleUnit.DEGREES);
