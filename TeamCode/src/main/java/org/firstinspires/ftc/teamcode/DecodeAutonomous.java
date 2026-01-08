@@ -10,27 +10,57 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
-
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name = "Decode Autonomous (Blue)")
-public class DecodeAutonomousBlue extends OpMode {
+@Autonomous(name = "Decode Autonomous")
+public class DecodeAutonomous extends OpMode {
     private Follower follower;
     private Timer pathTimer;
     private int pathState;
     private final double SHOOTER_VELOCITY = 1500;
-    private final Pose startPose = new Pose(25.28,132.75, Math.toRadians(144.046));
-    private final Pose shootPose = new Pose(48, 96, Math.toRadians(135));
-    private final Pose controlPose = new Pose(60, 84);
-    private final Pose startPickupPose = new Pose(48, 84, Math.toRadians(0));
-    private final Pose endPickupPose = new Pose(18, 84, Math.toRadians(0));
-    private final Pose finalPose = new Pose(48, 60, Math.toRadians(0));
+    private Pose startPose;
+    private Pose shootPose;
+    private Pose controlPose;
+    private Pose startPickupPose;
+    private Pose endPickupPose;
+    private Pose finalPose;
     private PathChain scorePreload, grabPickup, scorePickup, scoreEnd;
     private DcMotorEx leftShooter, rightShooter, intakeMotor, transferMotor;
     private DcMotorEx[] shooters;
 
     @Override
     public void init() {
+        telemetry.addLine("Left bumper: Blue");
+        telemetry.addLine("Right bumper: Red");
+        telemetry.update();
+
+        while (!gamepad1.left_bumper && !gamepad1.right_bumper) {}
+
+        double alliance;
+        if (gamepad1.left_bumper) {
+            alliance = 1;
+        } else {
+            alliance = -1;
+        }
+
+        telemetry.addLine("Left bumper: Near");
+        telemetry.addLine("Right bumper: Far");
+        telemetry.update();
+
+        while (!gamepad1.left_bumper && !gamepad1.right_bumper) {}
+
+        if (gamepad1.left_bumper) {
+            startPose = new Pose(72 - (72 - 25.28) * alliance, 132.75, Math.toRadians(90 + 54.046 * alliance));
+        } else {
+            startPose = new Pose(72 - (72 - 48) * alliance, 8.19, Math.toRadians(90 + 0 * alliance));
+        }
+
+        shootPose = new Pose(72 - (72 - 48) * alliance, 96, Math.toRadians(90 + 45 * alliance));
+        controlPose = new Pose(72 - (72 - 60) * alliance, 84);
+        startPickupPose = new Pose(72 - (72 - 48) * alliance, 84, Math.toRadians(90 - 90 * alliance));
+        endPickupPose = new Pose(72 - (72 - 18) * alliance, 84, Math.toRadians(90 - 90 * alliance));
+        finalPose = new Pose(72 - (72 - 48) * alliance, 60, Math.toRadians(90 - 90 * alliance));
+
         leftShooter = hardwareMap.get(DcMotorEx.class, "LS");
         rightShooter = hardwareMap.get(DcMotorEx.class, "RS");
         intakeMotor = hardwareMap.get(DcMotorEx.class, "IN");
@@ -151,6 +181,7 @@ public class DecodeAutonomousBlue extends OpMode {
                 break;
 
             case 5:
+                intakeMotor.setPower(0);
                 transferMotor.setPower(1);
                 if (pathTimer.getElapsedTimeSeconds() < 2) {
                     break;
