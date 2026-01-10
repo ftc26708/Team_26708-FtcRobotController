@@ -1,12 +1,54 @@
 ## NOTICE
-IF YOU ARE PART OF THE ARGONAUTS, READ WELCOME SECTION. after this one
+IF YOU ARE PART OF THE ARGONAUTS, READ WELCOME SECTION. after this header
 
 This repository contains the public FTC SDK for the DECODE (2025-2026) competition season.
 Use SDK Java 17 for Android Studio run and build on driver hub - 
 
 ## Welcome!
 If you are part of 26708 The Argonauts, please read this section in detail.
-If you are part of the coding team and want to help collaborate on the code:
+If you are part of the coding team and want to help collaborate on the code follow these instructions:
+🚀 Android Development Setup Guide for FTC Robot Controller
+This guide walks you through installing Android Studio and accessing the FTC Robot Controller repository on GitHub. Follow these steps to get your development environment up and running.
+
+🛠 Step 1: Install Android Studio
+Visit the official site
+Go to Download Android Studio.
+Download the installer
+Click the green Download Android Studio button.
+Accept terms and download
+Agree to the terms and conditions, then download the installer for your operating system.
+Install Android Studio
+Once downloaded, unzip the folder (if needed).
+Run the installer and follow the setup wizard.
+Choose standard installation unless you have specific preferences.
+
+📦 Step 2: Get the FTC Robot Controller Code
+Visit the GitHub repository
+Go to Team_26708-FtcRobotController.
+Download the code
+Click the green Code button.
+Select Download ZIP from the dropdown.
+Save the ZIP file to a known location.
+Unzip the project folder
+Right-click the ZIP file and choose Extract All.
+Place the extracted folder somewhere easy to find (e.g., Desktop or Documents).
+
+💻 Step 3: Open the Project in Android Studio
+Launch Android Studio
+Open Android Studio after installation.
+Complete the initial setup screens (you can skip SDK setup if prompted).
+Open the project
+On the welcome screen, select Open Project.
+Navigate to the folder you just unzipped from GitHub.
+Select the root folder and click OK.
+Let it build
+Android Studio will begin syncing and building the project.
+If prompted to install missing SDKs or tools, accept and proceed.
+
+✅ You're Ready to Code!
+You now have Android Studio installed and the FTC Robot Controller project loaded. Time to start coding, testing, and driving your robot to victory!
+PS- this was written by AI
+
 
 ## Requirements
 To use this Android Studio project, you will need Android Studio Ladybug (2024.2) or later.
