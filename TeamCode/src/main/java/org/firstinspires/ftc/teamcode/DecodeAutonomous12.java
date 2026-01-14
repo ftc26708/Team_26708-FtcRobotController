@@ -12,8 +12,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name = "Decode Autonomous")
-public class DecodeAutonomous extends OpMode {
+@Autonomous(name = "DECODE Autonomous")
+public class DecodeAutonomous12 extends OpMode {
     private enum InitState {
         HARDWARE,
         SELECT_ALLIANCE,
@@ -24,21 +24,23 @@ public class DecodeAutonomous extends OpMode {
     }
     private InitState initState = InitState.HARDWARE;
     private double alliance = 1;
-    private boolean nearSide = true;
     private Follower follower;
     private Timer pathTimer;
     private int pathState;
     private final double SHOOTER_VELOCITY = 1500;
     private Pose startPose;
     private Pose shootPose;
-    private Pose controlPose;
-    private Pose controlPose2;
-    private Pose startPickupPose;
-    private Pose endPickupPose;
-    private Pose startPickupPose2;
+    private Pose controlPose1;
+    private Pose endPickupPose1;
+    private Pose controlGatePose;
+    private Pose openGatePose;
+    private Pose firstControlPose2;
+    private Pose secondControlPose2;
     private Pose endPickupPose2;
+    private Pose controlPose3;
+    private Pose endPickupPose3;
     private Pose finalPose;
-    private PathChain scorePreload, grabPickup, scorePickup, grabPickup2, scorePickup2, scoreEnd;
+    private PathChain scorePreload, grabPickup1, scorePickup1, openGate, grabPickup2, scorePickup2, grabPickup3, scorePickup3;
     private DcMotorEx leftShooter, rightShooter, intakeMotor, transferMotor;
     private DcMotorEx[] shooters;
 
@@ -85,48 +87,24 @@ public class DecodeAutonomous extends OpMode {
                 }
                 if (gamepad1.right_bumper) {
                     alliance = -1;
-                    initState = InitState.SELECT_SIDE;
-                }
-                break;
-
-            case SELECT_SIDE:
-                telemetry.addLine("Select Start Position (GAMEPAD 2):");
-                telemetry.addLine("Left bumper = NEAR");
-                telemetry.addLine("Right bumper = FAR");
-
-                if (gamepad2.left_bumper) {
-                    nearSide = true;
-                    initState = InitState.COMPUTE_POSES;
-                }
-                if (gamepad2.right_bumper) {
-                    nearSide = false;
                     initState = InitState.COMPUTE_POSES;
                 }
                 break;
 
             case COMPUTE_POSES:
-                if (nearSide) {
-                    startPose = new Pose(
-                            72 - (72 - 25.28) * alliance,
-                            132.75,
-                            Math.toRadians(90 + 54.046 * alliance)
-                    );
-                } else {
-                    startPose = new Pose(
-                            72 - (72 - 48) * alliance,
-                            8.19,
-                            Math.toRadians(270)
-                    );
-                }
-
+                // Will move to nearSide = true block after far added
+                startPose = new Pose(72 - (72 - 15.78) * alliance, 123.52, Math.toRadians(90 + 90 * alliance));
                 shootPose = new Pose(72 - (72 - 48) * alliance, 96, Math.toRadians(90 + 45 * alliance));
-                controlPose = new Pose(72 - (72 - 60) * alliance, 84);
-                controlPose2 = new Pose(72 - (72 - 60) * alliance, 60);
-                startPickupPose = new Pose(72 - (72 - 48) * alliance, 84, Math.toRadians(90 - 90 * alliance));
-                endPickupPose = new Pose(72 - (72 - 18) * alliance, 84, Math.toRadians(90 - 90 * alliance));
-                startPickupPose2 = new Pose(72 - (72 - 48) * alliance, 60, Math.toRadians(90 - 90 * alliance));
+                controlPose1 = new Pose(72 - (72 - 48) * alliance, 84);
+                endPickupPose1 = new Pose(72 - (72 - 18) * alliance, 84, Math.toRadians(90 - 90 * alliance));
+                controlGatePose = new Pose(72 - (72 - 24) * alliance, 72);
+                openGatePose = new Pose(72 - (72 - 16) * alliance, 72, Math.toRadians(90 - 90 * alliance));
+                firstControlPose2 = new Pose(72 - (72 - 48) * alliance, 60);
+                secondControlPose2 = new Pose(72 - (72 - 36) * alliance, 60);
                 endPickupPose2 = new Pose(72 - (72 - 18) * alliance, 60, Math.toRadians(90 - 90 * alliance));
-                finalPose = new Pose(72 - (72 - 48) * alliance, 36, Math.toRadians(90 - 90 * alliance));
+                controlPose3 = new Pose(72 - (72 - 48) * alliance, 36);
+                endPickupPose3 = new Pose(72 - (72 - 18) * alliance, 36, Math.toRadians(90 - 90 * alliance));
+                finalPose = new Pose(72 - (72 - 57.5) * alliance, 108, Math.toRadians(90 + 58 * alliance));
 
                 initState = InitState.BUILD_PATHS;
                 break;
@@ -137,21 +115,24 @@ public class DecodeAutonomous extends OpMode {
                         .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading(), 0.75)
                         .build();
 
-                grabPickup = follower.pathBuilder()
-                        .addPath(new BezierCurve(shootPose, controlPose, startPickupPose))
-                        .addPath(new BezierLine(startPickupPose, endPickupPose))
-                        .setGlobalConstantHeadingInterpolation(endPickupPose.getHeading())
+                grabPickup1 = follower.pathBuilder()
+                        .addPath(new BezierCurve(shootPose, controlPose1, endPickupPose1))
+                        .setReversed()
                         .build();
 
-                scorePickup = follower.pathBuilder()
-                        .addPath(new BezierLine(endPickupPose, shootPose))
-                        .setLinearHeadingInterpolation(endPickupPose.getHeading(), shootPose.getHeading(), 0.75)
+                scorePickup1 = follower.pathBuilder()
+                        .addPath(new BezierLine(endPickupPose1, shootPose))
+                        .setLinearHeadingInterpolation(endPickupPose1.getHeading(), shootPose.getHeading(), 0.75)
                         .build();
 
                 grabPickup2 = follower.pathBuilder()
-                        .addPath(new BezierCurve(shootPose, controlPose2, startPickupPose2))
-                        .addPath(new BezierLine(startPickupPose2, endPickupPose2))
-                        .setGlobalConstantHeadingInterpolation(endPickupPose2.getHeading())
+                        .addPath(new BezierCurve(shootPose, firstControlPose2, secondControlPose2, endPickupPose2))
+                        .setReversed()
+                        .build();
+
+                openGate = follower.pathBuilder()
+                        .addPath(new BezierCurve(endPickupPose2, controlGatePose, openGatePose))
+                        .setReversed()
                         .build();
 
                 scorePickup2 = follower.pathBuilder()
@@ -159,9 +140,14 @@ public class DecodeAutonomous extends OpMode {
                         .setLinearHeadingInterpolation(endPickupPose2.getHeading(), shootPose.getHeading(), 0.75)
                         .build();
 
-                scoreEnd = follower.pathBuilder()
-                        .addPath(new BezierLine(shootPose, finalPose))
-                        .setLinearHeadingInterpolation(shootPose.getHeading(), finalPose.getHeading(), 0.75)
+                grabPickup3 = follower.pathBuilder()
+                        .addPath(new BezierCurve(shootPose, controlPose3, controlPose3, endPickupPose3))
+                        .setReversed()
+                        .build();
+
+                scorePickup3 = follower.pathBuilder()
+                        .addPath(new BezierLine(endPickupPose3, finalPose))
+                        .setLinearHeadingInterpolation(endPickupPose3.getHeading(), finalPose.getHeading(), 0.75)
                         .build();
 
                 follower.setStartingPose(startPose);
@@ -174,7 +160,6 @@ public class DecodeAutonomous extends OpMode {
         }
 
         telemetry.addData("Alliance", alliance == 1 ? "BLUE" : "RED");
-        telemetry.addData("Side", nearSide ? "NEAR" : "FAR");
         telemetry.update();
     }
 
@@ -233,13 +218,13 @@ public class DecodeAutonomous extends OpMode {
                 }
 
                 transferMotor.setPower(0);
-                follower.followPath(grabPickup, true);
+                follower.followPath(grabPickup1, true);
                 setPathState(3);
                 break;
 
             case 3:
                 if (!follower.isBusy()) {
-                    follower.followPath(scorePickup, true);
+                    follower.followPath(scorePickup1, true);
                     setPathState(4);
                 }
                 break;
@@ -279,18 +264,25 @@ public class DecodeAutonomous extends OpMode {
 
             case 6:
                 if (!follower.isBusy()) {
-                    follower.followPath(scorePickup2, true);
+                    follower.followPath(openGate, true);
                     setPathState(7);
                 }
                 break;
 
             case 7:
                 if (!follower.isBusy()) {
+                    follower.followPath(scorePickup2, true);
                     setPathState(8);
                 }
                 break;
 
             case 8:
+                if (!follower.isBusy()) {
+                    setPathState(9);
+                }
+                break;
+
+            case 9:
                 intakeMotor.setPower(0);
                 transferMotor.setPower(1);
                 if (pathTimer.getElapsedTimeSeconds() < 1) {
@@ -308,20 +300,56 @@ public class DecodeAutonomous extends OpMode {
                 }
 
                 intakeMotor.setPower(1);
-                if (pathTimer.getElapsedTimeSeconds() < 3.5) {
+                if (pathTimer.getElapsedTimeSeconds() < 3.25) {
                     break;
                 }
 
                 transferMotor.setPower(0);
-                intakeMotor.setPower(0);
-                for (DcMotorEx motor : shooters) {
-                    motor.setVelocity(0);
-                }
-                follower.followPath(scoreEnd, true);
-                setPathState(9);
+                follower.followPath(grabPickup3, true);
+                setPathState(10);
                 break;
 
-            case 9:
+            case 10:
+                if (!follower.isBusy()) {
+                    follower.followPath(scorePickup3, true);
+                    setPathState(11);
+                }
+                break;
+
+            case 11:
+                if (!follower.isBusy()) {
+                    setPathState(12);
+                }
+                break;
+
+            case 12:
+                intakeMotor.setPower(0);
+                transferMotor.setPower(1);
+                if (pathTimer.getElapsedTimeSeconds() < 1) {
+                    break;
+                }
+
+                intakeMotor.setPower(1);
+                if (pathTimer.getElapsedTimeSeconds() < 1.5) {
+                    break;
+                }
+
+                intakeMotor.setPower(0);
+                if (pathTimer.getElapsedTimeSeconds() < 2.5) {
+                    break;
+                }
+
+                intakeMotor.setPower(1);
+                if (pathTimer.getElapsedTimeSeconds() < 3.25) {
+                    break;
+                }
+
+                intakeMotor.setPower(0);
+                transferMotor.setPower(0);
+                setPathState(13);
+                break;
+
+            case 13:
                 break;
 
         }
