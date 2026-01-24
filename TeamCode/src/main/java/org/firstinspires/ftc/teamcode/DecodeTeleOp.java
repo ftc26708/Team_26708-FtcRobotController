@@ -65,14 +65,14 @@ public class DecodeTeleOp extends LinearOpMode {
 
     private void limelightLogic() {
         // Autonomous must be initialized while facing opposite alliance wall for auto-aiming to work
-        targetX = -1.7653; // 2.5 inches from back wall
+        targetX = -1.4827; // April tag position
         if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
             // Adjusts yaw sent to Limelight as its coordinate system is different
             yaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES) - 90;
-            targetY = 1.7653; // 2.5 inches from field corner with red goal
+            targetY = 1.4133; // Red goal
         } else {
             yaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES) + 90;
-            targetY = -1.7653; // 2.5 inches from field corner with blue goal
+            targetY = -1.4133; // Blue goal
         }
 
         // Normalizes yaw values
