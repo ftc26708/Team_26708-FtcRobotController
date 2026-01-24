@@ -75,7 +75,7 @@ public class DecodeAutonomous extends OpMode {
 
                 shooters = new DcMotorEx[]{leftShooter, rightShooter};
 
-                PIDFCoefficients coeffs = new PIDFCoefficients(15.0, 0.2, 2.5, 13.2);
+                PIDFCoefficients coeffs = new PIDFCoefficients(15.0, 0.05, 2.5, 13.2);
                 for (DcMotorEx motor : shooters) {
                     motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
                     motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
