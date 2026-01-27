@@ -96,12 +96,12 @@ public class DecodeTeleOp extends LinearOpMode {
         }
 
         // Redundancy in case of Autonomous program failing
-        if (gamepad1.left_bumper) {
+        if (gamepad1.dpad_left) {
             DataPasser.currentAlliance = DataPasser.Alliance.BLUE;
             imu.resetYaw();
             limelight.pipelineSwitch(0);
         }
-        if (gamepad1.right_bumper) {
+        if (gamepad1.dpad_right) {
             DataPasser.currentAlliance = DataPasser.Alliance.RED;
             imu.resetYaw();
             limelight.pipelineSwitch(1);
@@ -112,8 +112,8 @@ public class DecodeTeleOp extends LinearOpMode {
             autoAimEnabled = false;
         }
 
-        // Enables chassis auto-aim if gamepad 2 presses right trigger
-        else if (gamepad2.right_trigger > 0.1) {
+        // Overrides above case
+        if (gamepad1.right_bumper) {
             autoAimEnabled = true;
         }
     }
@@ -148,8 +148,10 @@ public class DecodeTeleOp extends LinearOpMode {
         intakeMotor.setPower(-gamepad2.left_stick_y);
         if (gamepad2.left_bumper) {
             transferMotor.setPower(-1.0);
+        } else {
+            transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
         }
-        transferMotor.setPower(1.2 * gamepad2.left_trigger - 0.2);
+        telemetry.addData("Transfer Power", transferMotor.getPower());
     }
 
     private void shooterLogic() {
@@ -161,15 +163,15 @@ public class DecodeTeleOp extends LinearOpMode {
         if (gamepad2.y)                  shooterMode = ShooterMode.FAR;
 
         if (horizontalDistance != -1) {
-            aimedShooterSpeed = Math.pow(15.38237, horizontalDistance - 1.39263) + (135.74363 * horizontalDistance) + 578.5749;
+            aimedShooterSpeed = 98.72452 * horizontalDistance + 431.56274 + Math.pow(27.19373, horizontalDistance - 2.24603);
         }
 
         if (shooterMode == ShooterMode.AUTO)  targetShooterVelocity = aimedShooterSpeed;
         if (shooterMode == ShooterMode.BACK)  targetShooterVelocity = -250;
         if (shooterMode == ShooterMode.ZERO)  targetShooterVelocity = 0;
-        if (shooterMode == ShooterMode.CLOSE) targetShooterVelocity = 700;
-        if (shooterMode == ShooterMode.MID)   targetShooterVelocity = 800;
-        if (shooterMode == ShooterMode.FAR)   targetShooterVelocity = 1175;
+        if (shooterMode == ShooterMode.CLOSE) targetShooterVelocity = 550;
+        if (shooterMode == ShooterMode.MID)   targetShooterVelocity = 625;
+        if (shooterMode == ShooterMode.FAR)   targetShooterVelocity = 800;
 
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx shooter : shooters) {
@@ -188,15 +190,22 @@ public class DecodeTeleOp extends LinearOpMode {
         intakeMotor = hardwareMap.get(DcMotorEx.class, "IN");
         transferMotor = hardwareMap.get(DcMotorEx.class, "TR");
 
-        DcMotor[] motors = {leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive, leftShooter, rightShooter, intakeMotor, transferMotor};
-        for (DcMotor motor : motors) {
+        DcMotor[] drives = {leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive};
+        for (DcMotor motor : drives) {
             motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        PIDFCoefficients coeffs = new PIDFCoefficients(15.0, 0.05, 2.5, 13.2);
+        DcMotorEx[] loaders = {intakeMotor, transferMotor};
+        for (DcMotorEx motor : loaders) {
+            motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        }
+
+        PIDFCoefficients coeffs = new PIDFCoefficients(30.0, 0.05, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
             motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
         }
 
