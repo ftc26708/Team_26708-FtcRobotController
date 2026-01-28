@@ -12,8 +12,8 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name = "DECODE Autonomous (Near)", preselectTeleOp = "DECODE TeleOp")
-public class DecodeAutonomous extends OpMode {
+@Autonomous(name = "DECODE Autonomous (Far)", preselectTeleOp = "DECODE TeleOp")
+public class FarDecodeAutonomous extends OpMode {
     public enum InitState {
         HARDWARE,
         SELECT_ALLIANCE,
@@ -25,20 +25,18 @@ public class DecodeAutonomous extends OpMode {
         INITIAL,
         MOVE_PRELOAD,
         SHOOT_PRELOAD,
-        GRAB_PICKUP_1,
-        WAIT_PICKUP_1,
-        MOVE_OPEN_GATE,
-        WAIT_OPEN_GATE,
-        MOVE_PICKUP_1,
-        SHOOT_PICKUP_1,
-        GRAB_PICKUP_2,
-        WAIT_PICKUP_2,
-        MOVE_PICKUP_2,
-        SHOOT_PICKUP_2,
-        GRAB_PICKUP_3,
-        WAIT_PICKUP_3,
-        MOVE_PICKUP_3,
-        SHOOT_PICKUP_3,
+        GRAB_SPIKE_MARK,
+        WAIT_SPIKE_MARK,
+        MOVE_SPIKE_MARK,
+        SHOOT_SPIKE_MARK,
+        MOVE_OPTIONAL_PARK,
+        WAIT_OPTIONAL_PARK,
+        START_GRAB_LOADING_ZONE,
+        END_GRAB_LOADING_ZONE,
+        WAIT_LOADING_ZONE,
+        MOVE_LOADING_ZONE,
+        SHOOT_LOADING_ZONE,
+        MOVE_FINAL_PARK,
         IDLE_PARKED
     }
     private InitState initState = InitState.HARDWARE;
@@ -51,32 +49,29 @@ public class DecodeAutonomous extends OpMode {
     private Pose
             startPose,
             shootPose,
-            firstControlPosePickup1,
-            secondControlPosePickup1,
-            endPosePickup1,
-            firstControlPoseGate,
-            secondControlPoseGate,
-            endPoseGate,
-            firstControlPosePickup2,
-            secondControlPosePickup2,
-            endPosePickup2,
-            firstControlPosePickup3,
-            secondControlPosePickup3,
-            endPosePickup3,
+            optionalParkPose,
+            spikeMarkControlPose1,
+            spikeMarkControlPose2,
+            spikeMarkControlPose3,
+            spikeMarkEndPose,
+            loadingZoneStartPose,
+            loadingZoneEndPose,
             finalPose;
     private PathChain
             scorePreload,
-            grabPickup1,
-            openGate,
-            scorePickup1,
-            grabPickup2,
-            scorePickup2,
-            grabPickup3,
-            scorePickup3;
+            startLoadingZonePickup,
+            endLoadingZonePickup,
+            scoreLoadingZonePickup,
+            scoreOptionalPark,
+            grabSpikeMarkPickup,
+            scoreSpikeMarkPickup,
+            scoreFinalPark;
     private DcMotorEx leftShooter, rightShooter, intakeMotor, transferMotor;
     private DcMotorEx[] shooters;
 
-    public void init() {}
+    @Override
+    public void init() {
+    }
 
     @Override
     public void init_loop() {
@@ -128,22 +123,16 @@ public class DecodeAutonomous extends OpMode {
 
             case COMPUTE_POSES:
                 telemetry.addLine("Computing positions...");
-                // Will move to nearSide = true block after far added
-                startPose = new Pose(72 - (72 - 15.78) * alliance, 113.52, Math.toRadians(90 + 90 * alliance));
-                shootPose = new Pose(72 - (72 - 48) * alliance, 96, Math.toRadians(90 + 45 * alliance));
-                firstControlPosePickup1 = new Pose(72 - (72 - 48) * alliance, 84);
-                secondControlPosePickup1 = new Pose(72 - (72 - 36) * alliance, 84);
-                endPosePickup1 = new Pose(72 - (72 - 18) * alliance, 84, Math.toRadians(90 - 90 * alliance));
-                firstControlPoseGate = new Pose(72 - (72 - 48) * alliance, 84);
-                secondControlPoseGate = new Pose(72 - (72 - 48) * alliance, 72);
-                endPoseGate = new Pose(72 - (72 - 16.38) * alliance, 72, Math.toRadians(90 + 90 * alliance));
-                firstControlPosePickup2 = new Pose(72 - (72 - 48) * alliance, 60);
-                secondControlPosePickup2 = new Pose(72 - (72 - 36) * alliance, 60);
-                endPosePickup2 = new Pose(72 - (72 - 18) * alliance, 60, Math.toRadians(90 - 90 * alliance));
-                firstControlPosePickup3 = new Pose(72 - (72 - 48) * alliance, 36);
-                secondControlPosePickup3 = new Pose(72 - (72 - 36) * alliance, 36);
-                endPosePickup3 = new Pose(72 - (72 - 18) * alliance, 36, Math.toRadians(90 - 90 * alliance));
-                finalPose = new Pose(72 - (72 - 58.79) * alliance, 110.06, Math.toRadians(90 + 60 * alliance));
+                startPose = new Pose(72 - (72 - 60.000) * alliance, 7.950, Math.toRadians(90 + 90 * alliance));
+                shootPose = new Pose(72 - (72 - 60.000) * alliance, 21.000, Math.toRadians(90 + 26 * alliance));
+                loadingZoneStartPose = new Pose(72 - (72 - 11.000) * alliance, 21.000, Math.toRadians(90 - 70 * alliance));
+                loadingZoneEndPose = new Pose(72 - (72 - 11.000) * alliance, 11.000, Math.toRadians(90 - 70 * alliance));
+                optionalParkPose = new Pose(72 - (72 - 36.000) * alliance, 9.000, Math.toRadians(90 - 90 * alliance));
+                spikeMarkControlPose1 = new Pose(72 - (72 - 60.000) * alliance, 24.000);
+                spikeMarkControlPose2 = new Pose(72 - (72 - 60.000) * alliance, 36.000);
+                spikeMarkControlPose3 = new Pose(72 - (72 - 36.000) * alliance, 36.000);
+                spikeMarkEndPose = new Pose(72 - (72 - 9.000) * alliance, 36.000, Math.toRadians(90 - 90 * alliance));
+                finalPose = new Pose(72 - (72 - 54.000) * alliance, 33.300, Math.toRadians(90 + 26 * alliance));
 
                 initState = InitState.BUILD_PATHS;
                 break;
@@ -152,42 +141,42 @@ public class DecodeAutonomous extends OpMode {
                 telemetry.addLine("Building Paths...");
                 scorePreload = follower.pathBuilder()
                         .addPath(new BezierLine(startPose, shootPose))
-                        .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading(), 0.75)
+                        .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())
                         .build();
 
-                grabPickup1 = follower.pathBuilder()
-                        .addPath(new BezierCurve(shootPose, firstControlPosePickup1, firstControlPosePickup1, secondControlPosePickup1, endPosePickup1))
-                        .setConstantHeadingInterpolation(endPosePickup1.getHeading())
+                startLoadingZonePickup = follower.pathBuilder()
+                        .addPath(new BezierLine(shootPose, loadingZoneStartPose))
+                        .setLinearHeadingInterpolation(shootPose.getHeading(), loadingZoneStartPose.getHeading())
                         .build();
 
-                openGate = follower.pathBuilder()
-                        .addPath(new BezierCurve(endPosePickup1, firstControlPoseGate, secondControlPoseGate, endPoseGate))
-                        .setLinearHeadingInterpolation(endPosePickup1.getHeading(), endPoseGate.getHeading(), 0.5)
+                endLoadingZonePickup = follower.pathBuilder()
+                        .addPath(new BezierLine(loadingZoneStartPose, loadingZoneEndPose))
+                        .setConstantHeadingInterpolation(loadingZoneEndPose.getHeading())
                         .build();
 
-                scorePickup1 = follower.pathBuilder()
-                        .addPath(new BezierLine(endPoseGate, shootPose))
-                        .setLinearHeadingInterpolation(endPoseGate.getHeading(), shootPose.getHeading(), 0.75)
+                scoreLoadingZonePickup = follower.pathBuilder()
+                        .addPath(new BezierLine(loadingZoneEndPose, shootPose))
+                        .setLinearHeadingInterpolation(loadingZoneEndPose.getHeading(), shootPose.getHeading())
                         .build();
 
-                grabPickup2 = follower.pathBuilder()
-                        .addPath(new BezierCurve(shootPose, firstControlPosePickup2, firstControlPosePickup2, secondControlPosePickup2, endPosePickup2))
-                        .setConstantHeadingInterpolation(endPosePickup2.getHeading())
+                scoreOptionalPark = follower.pathBuilder()
+                        .addPath(new BezierLine(shootPose, optionalParkPose))
+                        .setLinearHeadingInterpolation(shootPose.getHeading(), optionalParkPose.getHeading())
                         .build();
 
-                scorePickup2 = follower.pathBuilder()
-                        .addPath(new BezierLine(endPosePickup2, shootPose))
-                        .setLinearHeadingInterpolation(endPosePickup2.getHeading(), shootPose.getHeading(), 0.75)
+                grabSpikeMarkPickup = follower.pathBuilder()
+                        .addPath(new BezierCurve(optionalParkPose, spikeMarkControlPose1, spikeMarkControlPose2, spikeMarkControlPose3, spikeMarkEndPose))
+                        .setConstantHeadingInterpolation(spikeMarkEndPose.getHeading())
                         .build();
 
-                grabPickup3 = follower.pathBuilder()
-                        .addPath(new BezierCurve(shootPose, firstControlPosePickup3, firstControlPosePickup3, secondControlPosePickup3, endPosePickup3))
-                        .setConstantHeadingInterpolation(endPosePickup3.getHeading())
+                scoreSpikeMarkPickup = follower.pathBuilder()
+                        .addPath(new BezierLine(spikeMarkEndPose, shootPose))
+                        .setLinearHeadingInterpolation(spikeMarkEndPose.getHeading(), shootPose.getHeading())
                         .build();
 
-                scorePickup3 = follower.pathBuilder()
-                        .addPath(new BezierLine(endPosePickup3, finalPose))
-                        .setLinearHeadingInterpolation(endPosePickup3.getHeading(), finalPose.getHeading(), 0.75)
+                scoreFinalPark = follower.pathBuilder()
+                        .addPath(new BezierLine(shootPose, finalPose))
+                        .setConstantHeadingInterpolation(finalPose.getHeading())
                         .build();
 
                 follower.setStartingPose(startPose);
@@ -242,105 +231,82 @@ public class DecodeAutonomous extends OpMode {
                     break;
                 }
                 transferMotor.setPower(-0.4);
-                follower.followPath(grabPickup1, 0.6, true);
-                setPathState(PathState.GRAB_PICKUP_1);
+                follower.followPath(startLoadingZonePickup, 0.6, true);
+                setPathState(PathState.START_GRAB_LOADING_ZONE);
                 break;
 
-            case GRAB_PICKUP_1:
+            case START_GRAB_LOADING_ZONE:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.WAIT_PICKUP_1);
+                    follower.followPath(endLoadingZonePickup, 0.4, true);
+                    setPathState(PathState.END_GRAB_LOADING_ZONE);
                 }
                 break;
 
-            case WAIT_PICKUP_1:
+            case END_GRAB_LOADING_ZONE:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.WAIT_LOADING_ZONE);
+                }
+                break;
+
+            case WAIT_LOADING_ZONE:
                 if (pathTimer.getElapsedTimeSeconds() < 0.5) {
                     break;
                 }
-                follower.followPath(openGate, true);
-                setPathState(PathState.MOVE_OPEN_GATE);
+                follower.followPath(scoreLoadingZonePickup, true);
+                setPathState(PathState.MOVE_LOADING_ZONE);
                 break;
 
-            case MOVE_OPEN_GATE:
+            case MOVE_LOADING_ZONE:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.WAIT_OPEN_GATE);
+                    setPathState(PathState.SHOOT_LOADING_ZONE);
                 }
                 break;
 
-            case WAIT_OPEN_GATE:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
-                    break;
-                }
-                follower.followPath(scorePickup1, true);
-                setPathState(PathState.MOVE_PICKUP_1);
-                break;
-
-            case MOVE_PICKUP_1:
-                if (!follower.isBusy()) {
-                    setPathState(PathState.SHOOT_PICKUP_1);
-                }
-                break;
-
-            case SHOOT_PICKUP_1:
+            case SHOOT_LOADING_ZONE:
                 transferMotor.setPower(0.4);
                 if (pathTimer.getElapsedTimeSeconds() < 1.5) {
                     break;
                 }
                 transferMotor.setPower(-0.4);
-                follower.followPath(grabPickup2, 0.6, true);
-                setPathState(PathState.GRAB_PICKUP_2);
+                follower.followPath(scoreOptionalPark, true);
+                setPathState(PathState.MOVE_OPTIONAL_PARK);
                 break;
 
-            case GRAB_PICKUP_2:
+            case MOVE_OPTIONAL_PARK:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.WAIT_PICKUP_2);
+                    setPathState(PathState.WAIT_OPTIONAL_PARK);
                 }
                 break;
 
-            case WAIT_PICKUP_2:
+            case WAIT_OPTIONAL_PARK:
+                if (pathTimer.getElapsedTimeSeconds() < 3) {
+                    break;
+                }
+                follower.followPath(grabSpikeMarkPickup, 0.6, true);
+                setPathState(PathState.GRAB_SPIKE_MARK);
+                break;
+
+            case GRAB_SPIKE_MARK:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.WAIT_SPIKE_MARK);
+                }
+                break;
+
+            case WAIT_SPIKE_MARK:
                 if (pathTimer.getElapsedTimeSeconds() < 0.5) {
                     break;
                 }
-                follower.followPath(scorePickup2, true);
-                setPathState(PathState.MOVE_PICKUP_2);
+                follower.followPath(scoreSpikeMarkPickup, true);
+                setPathState(PathState.MOVE_SPIKE_MARK);
                 break;
 
-            case MOVE_PICKUP_2:
+            case MOVE_SPIKE_MARK:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.SHOOT_PICKUP_2);
+                    setPathState(PathState.SHOOT_SPIKE_MARK);
                 }
                 break;
 
-            case SHOOT_PICKUP_2:
-                transferMotor.setPower(0.4);
-                if (pathTimer.getElapsedTimeSeconds() < 1.5) {
-                    break;
-                }
-                transferMotor.setPower(-0.4);
-                follower.followPath(grabPickup3, 0.6, true);
-                setPathState(PathState.GRAB_PICKUP_3);
-                break;
-
-            case GRAB_PICKUP_3:
-                if (!follower.isBusy()) {
-                    setPathState(PathState.WAIT_PICKUP_3);
-                }
-                break;
-
-            case WAIT_PICKUP_3:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
-                    break;
-                }
-                follower.followPath(scorePickup3, true);
-                setPathState(PathState.MOVE_PICKUP_3);
-                break;
-
-            case MOVE_PICKUP_3:
-                if (!follower.isBusy()) {
-                    setPathState(PathState.SHOOT_PICKUP_3);
-                }
-                break;
-
-            case SHOOT_PICKUP_3:
+            case SHOOT_SPIKE_MARK:
                 transferMotor.setPower(0.4);
                 if (pathTimer.getElapsedTimeSeconds() < 1.5) {
                     break;
@@ -349,7 +315,14 @@ public class DecodeAutonomous extends OpMode {
                 rightShooter.setPower(0);
                 transferMotor.setPower(0);
                 intakeMotor.setPower(0);
-                setPathState(PathState.IDLE_PARKED);
+                follower.followPath(scoreFinalPark, true);
+                setPathState(PathState.MOVE_FINAL_PARK);
+                break;
+
+            case MOVE_FINAL_PARK:
+                if (!follower.isBusy()) {
+                    setPathState(PathState.IDLE_PARKED);
+                }
                 break;
 
             case IDLE_PARKED:
@@ -357,8 +330,8 @@ public class DecodeAutonomous extends OpMode {
         }
     }
 
-    public void setPathState(PathState pathState) {
-        this.pathState = pathState;
+    public void setPathState(PathState state) {
+        pathState = state;
         pathTimer.resetTimer();
     }
 }
