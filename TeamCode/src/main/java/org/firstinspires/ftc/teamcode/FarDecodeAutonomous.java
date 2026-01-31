@@ -45,7 +45,7 @@ public class FarDecodeAutonomous extends OpMode {
     private String allianceName;
     private Follower follower;
     private Timer pathTimer;
-    private final double SHOOTER_VELOCITY = 740;
+    private final double SHOOTER_VELOCITY = 750;
     private Pose
             startPose,
             shootPose,
@@ -86,7 +86,7 @@ public class FarDecodeAutonomous extends OpMode {
 
                 shooters = new DcMotorEx[]{leftShooter, rightShooter};
 
-                PIDFCoefficients coeffs = new PIDFCoefficients(30.0, 0.05, 2.5, 13.2);
+                PIDFCoefficients coeffs = new PIDFCoefficients(45.0, 0.02, 2.5, 13.2);
                 for (DcMotorEx motor : shooters) {
                     motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
                     motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);

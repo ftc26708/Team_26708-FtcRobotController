@@ -28,7 +28,6 @@ public class DecodeAutonomous extends OpMode {
         GRAB_PICKUP_1,
         WAIT_PICKUP_1,
         MOVE_OPEN_GATE,
-        WAIT_OPEN_GATE,
         MOVE_PICKUP_1,
         SHOOT_PICKUP_1,
         GRAB_PICKUP_2,
@@ -47,7 +46,7 @@ public class DecodeAutonomous extends OpMode {
     private String allianceName;
     private Follower follower;
     private Timer pathTimer;
-    private final double SHOOTER_VELOCITY = 740;
+    private final double SHOOTER_VELOCITY = 570;
     private Pose
             startPose,
             shootPose,
@@ -91,7 +90,7 @@ public class DecodeAutonomous extends OpMode {
 
                 shooters = new DcMotorEx[]{leftShooter, rightShooter};
 
-                PIDFCoefficients coeffs = new PIDFCoefficients(30.0, 0.05, 2.5, 13.2);
+                PIDFCoefficients coeffs = new PIDFCoefficients(45.0, 0.02, 2.5, 13.2);
                 for (DcMotorEx motor : shooters) {
                     motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
                     motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
@@ -128,7 +127,6 @@ public class DecodeAutonomous extends OpMode {
 
             case COMPUTE_POSES:
                 telemetry.addLine("Computing positions...");
-                // Will move to nearSide = true block after far added
                 startPose = new Pose(72 - (72 - 15.78) * alliance, 113.52, Math.toRadians(90 + 90 * alliance));
                 shootPose = new Pose(72 - (72 - 48) * alliance, 96, Math.toRadians(90 + 45 * alliance));
                 firstControlPosePickup1 = new Pose(72 - (72 - 48) * alliance, 84);
@@ -136,13 +134,13 @@ public class DecodeAutonomous extends OpMode {
                 endPosePickup1 = new Pose(72 - (72 - 18) * alliance, 84, Math.toRadians(90 - 90 * alliance));
                 firstControlPoseGate = new Pose(72 - (72 - 48) * alliance, 84);
                 secondControlPoseGate = new Pose(72 - (72 - 48) * alliance, 72);
-                endPoseGate = new Pose(72 - (72 - 16.38) * alliance, 72, Math.toRadians(90 + 90 * alliance));
+                endPoseGate = new Pose(72 - (72 - 16.38) * alliance, 72, Math.toRadians(90 + 90.1 * alliance));
                 firstControlPosePickup2 = new Pose(72 - (72 - 48) * alliance, 60);
                 secondControlPosePickup2 = new Pose(72 - (72 - 36) * alliance, 60);
-                endPosePickup2 = new Pose(72 - (72 - 18) * alliance, 60, Math.toRadians(90 - 90 * alliance));
+                endPosePickup2 = new Pose(72 - (72 - 12) * alliance, 60, Math.toRadians(90 - 90 * alliance));
                 firstControlPosePickup3 = new Pose(72 - (72 - 48) * alliance, 36);
                 secondControlPosePickup3 = new Pose(72 - (72 - 36) * alliance, 36);
-                endPosePickup3 = new Pose(72 - (72 - 18) * alliance, 36, Math.toRadians(90 - 90 * alliance));
+                endPosePickup3 = new Pose(72 - (72 - 12) * alliance, 36, Math.toRadians(90 - 90 * alliance));
                 finalPose = new Pose(72 - (72 - 58.79) * alliance, 110.06, Math.toRadians(90 + 60 * alliance));
 
                 initState = InitState.BUILD_PATHS;
@@ -253,7 +251,7 @@ public class DecodeAutonomous extends OpMode {
                 break;
 
             case WAIT_PICKUP_1:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
+                if (pathTimer.getElapsedTimeSeconds() < 0.25) {
                     break;
                 }
                 follower.followPath(openGate, true);
@@ -262,16 +260,9 @@ public class DecodeAutonomous extends OpMode {
 
             case MOVE_OPEN_GATE:
                 if (!follower.isBusy()) {
-                    setPathState(PathState.WAIT_OPEN_GATE);
+                    follower.followPath(scorePickup1, true);
+                    setPathState(PathState.MOVE_PICKUP_1);
                 }
-                break;
-
-            case WAIT_OPEN_GATE:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
-                    break;
-                }
-                follower.followPath(scorePickup1, true);
-                setPathState(PathState.MOVE_PICKUP_1);
                 break;
 
             case MOVE_PICKUP_1:
@@ -297,7 +288,7 @@ public class DecodeAutonomous extends OpMode {
                 break;
 
             case WAIT_PICKUP_2:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
+                if (pathTimer.getElapsedTimeSeconds() < 0.25) {
                     break;
                 }
                 follower.followPath(scorePickup2, true);
@@ -327,7 +318,7 @@ public class DecodeAutonomous extends OpMode {
                 break;
 
             case WAIT_PICKUP_3:
-                if (pathTimer.getElapsedTimeSeconds() < 0.5) {
+                if (pathTimer.getElapsedTimeSeconds() < 0.25) {
                     break;
                 }
                 follower.followPath(scorePickup3, true);

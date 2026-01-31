@@ -25,7 +25,7 @@ public class DecodeTeleOp extends LinearOpMode {
     // Constants
     private double targetX;
     private double targetY;
-    private final double KP = 0.06;
+    private final double KP = 0.075;
     private final double KF = 0.015;
     private final double MAX_TURN_OUTPUT = 0.75;
 
@@ -113,7 +113,7 @@ public class DecodeTeleOp extends LinearOpMode {
         }
 
         // Overrides above case
-        if (gamepad1.right_bumper) {
+        if (gamepad2.right_trigger_pressed) {
             autoAimEnabled = true;
         }
     }
@@ -162,20 +162,18 @@ public class DecodeTeleOp extends LinearOpMode {
         if (gamepad2.x)                  shooterMode = ShooterMode.MID;
         if (gamepad2.y)                  shooterMode = ShooterMode.FAR;
 
-        if (horizontalDistance != -1) {
-            aimedShooterSpeed = 98.72452 * horizontalDistance + 431.56274 + Math.pow(27.19373, horizontalDistance - 2.24603);
-        }
-
+        if (horizontalDistance != -1)         aimedShooterSpeed = (0.00333057 * Math.pow(33.55221, horizontalDistance)) + (191.64674 * horizontalDistance) + 971.0142;
         if (shooterMode == ShooterMode.AUTO)  targetShooterVelocity = aimedShooterSpeed;
-        if (shooterMode == ShooterMode.BACK)  targetShooterVelocity = -250;
+        if (shooterMode == ShooterMode.BACK)  targetShooterVelocity = -500;
         if (shooterMode == ShooterMode.ZERO)  targetShooterVelocity = 0;
-        if (shooterMode == ShooterMode.CLOSE) targetShooterVelocity = 550;
-        if (shooterMode == ShooterMode.MID)   targetShooterVelocity = 625;
-        if (shooterMode == ShooterMode.FAR)   targetShooterVelocity = 800;
+        if (shooterMode == ShooterMode.CLOSE) targetShooterVelocity = 1200;
+        if (shooterMode == ShooterMode.MID)   targetShooterVelocity = 1350;
+        if (shooterMode == ShooterMode.FAR)   targetShooterVelocity = 1700;
+        if (targetShooterVelocity > 2000)     targetShooterVelocity = 2000;
 
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx shooter : shooters) {
-            shooter.setVelocity(targetShooterVelocity);
+            shooter.setVelocity(targetShooterVelocity * 7/15);
         }
     }
 
@@ -202,7 +200,7 @@ public class DecodeTeleOp extends LinearOpMode {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        PIDFCoefficients coeffs = new PIDFCoefficients(30.0, 0.05, 2.5, 13.2);
+        PIDFCoefficients coeffs = new PIDFCoefficients(45.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -233,6 +231,8 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Target Found", (horizontalDistance == -1) ? "NO" : "YES");
         telemetry.addData("Distance to Target", "%.2f", horizontalDistance);
         telemetry.addData("Shooter Velocity", targetShooterVelocity);
+        telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
+        telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
         telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
         telemetry.update();
