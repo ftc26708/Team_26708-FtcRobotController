@@ -9,8 +9,6 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
 @TeleOp(name = "DECODE TeleOp")
 public class DecodeTeleOp extends LinearOpMode {
@@ -23,15 +21,15 @@ public class DecodeTeleOp extends LinearOpMode {
     private IMU imu;
 
     // Constants
-    private double targetX;
-    private double targetY;
+    final double MOUNT_HEIGHT = 0.26035;
+    final double TARGET_HEIGHT = 0.74930;
+    final double MOUNT_ANGLE = 16.0;
     private final double KP = 0.075;
     private final double KF = 0.015;
     private final double MAX_TURN_OUTPUT = 0.75;
 
     // Variables
     private double horizontalDistance = -1;
-    private double yaw = 0;
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
     private double aimedShooterSpeed = 0;
@@ -64,33 +62,14 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void limelightLogic() {
-        // Autonomous must be initialized while facing opposite alliance wall for auto-aiming to work
-        targetX = -1.4827; // April tag position
-        if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
-            // Adjusts yaw sent to Limelight as its coordinate system is different
-            yaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES) - 90;
-            targetY = 1.4133; // Red goal
-        } else {
-            yaw = imu.getRobotYawPitchRollAngles().getYaw(AngleUnit.DEGREES) + 90;
-            targetY = -1.4133; // Blue goal
-        }
-
-        // Normalizes yaw values
-        while (yaw > 180)   yaw -= 360;
-        while (yaw <= -180) yaw += 360;
-
         // Updates Limelight values
-        limelight.updateRobotOrientation(yaw);
         LLResult result = limelight.getLatestResult();
 
         // If result valid, calculates position of bot and distance to goal
         if (result != null && result.isValid()) {
-            Pose3D botpose = result.getBotpose_MT2();
-            if (botpose != null) {
-                double dx = targetX - botpose.getPosition().x;
-                double dy = targetY - botpose.getPosition().y;
-                horizontalDistance = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
-            }
+            double ty = result.getTy();
+            double totalAngleRadians = Math.toRadians(MOUNT_ANGLE + ty);
+            horizontalDistance = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
         } else {
             horizontalDistance = -1; // Placeholder value as no valid result
         }
