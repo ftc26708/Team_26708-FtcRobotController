@@ -12,7 +12,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
-@TeleOp(name = "DECODE TeleOp")
+@TeleOp(name = "Decode TeleOp")
 public class DecodeTeleOp extends LinearOpMode {
     // Motors
     private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive;
@@ -35,11 +35,6 @@ public class DecodeTeleOp extends LinearOpMode {
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
     private double aimedShooterSpeed = 0;
-
-    // AUTO SEQUENCE STATE
-    private boolean autoSequenceActive = false;
-    private long autoSequenceStartTime = 0;
-
     private enum ShooterMode {
         AUTO,
         BACK,
@@ -48,7 +43,7 @@ public class DecodeTeleOp extends LinearOpMode {
         MID,
         FAR
     }
-    
+    // Change this line near the top of your class (line 46)
     ShooterMode shooterMode = ShooterMode.AUTO;
 
     @Override
@@ -95,7 +90,7 @@ public class DecodeTeleOp extends LinearOpMode {
             if (botpose != null) {
                 double dx = targetX - botpose.getPosition().x;
                 double dy = targetY - botpose.getPosition().y;
-                horizontalDistance = Math.sqrt(dx * dx + dy * dy);
+                horizontalDistance = Math.sqrt(Math.pow(dx, 2) + Math.pow(dy, 2));
             }
         } else {
             horizontalDistance = -1; // Placeholder value as no valid result
@@ -151,74 +146,65 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void intakeAndTransfer() {
-        if (!autoSequenceActive) {
-            intakeMotor.setPower(-gamepad2.left_stick_y);
-            if (gamepad2.left_bumper) {
-                transferMotor.setPower(-1.0);
-            } else {
-                transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
-            }
+        intakeMotor.setPower(-gamepad2.left_stick_y);
+        if (gamepad2.left_bumper) {
+            transferMotor.setPower(-1.0);
+        } else {
+            transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
         }
         telemetry.addData("Transfer Power", transferMotor.getPower());
     }
 
     private void shooterLogic() {
-        // 1. Manual Overrides (Buttons)
-        if (gamepad2.a && !autoSequenceActive) {
-            // Start Auto Sequence if A is pressed
-            autoSequenceActive = true;
-            autoSequenceStartTime = System.currentTimeMillis();
-        }
-        
+        // 1. Check for manual mode changes from Gamepad
+        if (gamepad2.a)  shooterMode = ShooterMode.ZERO;
         if (gamepad2.b)  shooterMode = ShooterMode.CLOSE;
         if (gamepad2.x)  shooterMode = ShooterMode.MID;
         if (gamepad2.y)  shooterMode = ShooterMode.FAR;
         if (gamepad2.right_stick_button) shooterMode = ShooterMode.BACK;
+
+        // Add a way to switch BACK to Auto mode (e.g., Right Bumper)
         if (gamepad2.right_bumper) shooterMode = ShooterMode.AUTO;
-        if (gamepad2.dpad_down) shooterMode = ShooterMode.ZERO;
 
-        // 2. Auto Sequence Execution
-        if (autoSequenceActive) {
-            autoAimEnabled = true;
-            shooterMode = ShooterMode.AUTO;
-            intakeMotor.setPower(-1.0);
-            transferMotor.setPower(-1.0);
-
-            if (System.currentTimeMillis() - autoSequenceStartTime >= 4000) {
-                autoSequenceActive = false;
-                intakeMotor.setPower(0);
-                transferMotor.setPower(0);
-                autoAimEnabled = false;
-            }
-        }
-
-        // 3. Calculation Logic
-        if (horizontalDistance > 0 && shooterMode == ShooterMode.AUTO) {
+        // 2. Calculate the distance-based speed
+        if (horizontalDistance > 0) {
             aimedShooterSpeed = (0.00333057 * Math.pow(33.55221, horizontalDistance)) +
                     (191.64674 * horizontalDistance) +
                     971.0142;
         }
 
-        // 4. Determine final velocity based on mode
+        // 3. Determine final velocity based on mode
         switch (shooterMode) {
             case AUTO:
+                // If in auto, use the distance calculation
                 targetShooterVelocity = (horizontalDistance > 0) ? aimedShooterSpeed : 0;
                 break;
-            case CLOSE: targetShooterVelocity = 1200; break;
-            case MID:   targetShooterVelocity = 1350; break;
-            case FAR:   targetShooterVelocity = 1700; break;
-            case BACK:  targetShooterVelocity = -500; break;
+            case CLOSE:
+                targetShooterVelocity = 1200;
+                break;
+            case MID:
+                targetShooterVelocity = 1350;
+                break;
+            case FAR:
+                targetShooterVelocity = 1700;
+                break;
+            case BACK:
+                targetShooterVelocity = -500;
+                break;
             case ZERO:
-            default:    targetShooterVelocity = 0;    break;
+            default:
+                targetShooterVelocity = 0;
+                break;
         }
 
-        // 5. Safety Clamp and Application
+        // 4. Clamp and Apply
         targetShooterVelocity = Math.min(targetShooterVelocity, 2000);
         double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
 
         leftShooter.setVelocity(scaledVelocity);
         rightShooter.setVelocity(scaledVelocity);
     }
+
 
     private void initHardware() {
         leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
@@ -262,7 +248,11 @@ public class DecodeTeleOp extends LinearOpMode {
 
         imu = hardwareMap.get(IMU.class, "imu");
         limelight = hardwareMap.get(Limelight3A.class, "LM");
-        limelight.pipelineSwitch(DataPasser.currentAlliance == DataPasser.Alliance.RED ? 1 : 0);
+        if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+            limelight.pipelineSwitch(1);
+        } else {
+            limelight.pipelineSwitch(0);
+        }
         limelight.start();
     }
 
@@ -270,10 +260,10 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Target Found", (horizontalDistance == -1) ? "NO" : "YES");
         telemetry.addData("Distance to Target", "%.2f", horizontalDistance);
         telemetry.addData("Shooter Velocity", targetShooterVelocity);
-        telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15.0 / 7.0);
-        telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15.0 / 7.0);
+        telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
+        telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
-        telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1200)"));
+        telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
         telemetry.update();
     }
 }
