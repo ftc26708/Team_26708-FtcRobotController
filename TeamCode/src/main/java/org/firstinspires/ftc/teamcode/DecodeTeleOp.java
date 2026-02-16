@@ -12,7 +12,7 @@ import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 
-@TeleOp(name = "Decode TeleOp")
+@TeleOp(name = "Decode TeleOp LumoJUMP")
 public class DecodeTeleOp extends LinearOpMode {
     // Motors
     private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive;
@@ -43,7 +43,7 @@ public class DecodeTeleOp extends LinearOpMode {
         MID,
         FAR
     }
-    // Change this line near the top of your class (line 46)
+
     ShooterMode shooterMode = ShooterMode.AUTO;
 
     @Override
@@ -156,49 +156,47 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void shooterLogic() {
-        // 1. Check for manual mode changes from Gamepad
+        // 1. Manual Overrides (Driver can still force a mode)
         if (gamepad2.a)  shooterMode = ShooterMode.ZERO;
         if (gamepad2.b)  shooterMode = ShooterMode.CLOSE;
         if (gamepad2.x)  shooterMode = ShooterMode.MID;
         if (gamepad2.y)  shooterMode = ShooterMode.FAR;
         if (gamepad2.right_stick_button) shooterMode = ShooterMode.BACK;
-
-        // Add a way to switch BACK to Auto mode (e.g., Right Bumper)
         if (gamepad2.right_bumper) shooterMode = ShooterMode.AUTO;
 
-        // 2. Calculate the distance-based speed
+        // 2. AUTOMATIC HIJACK: If Limelight sees a tag, force AUTO mode
         if (horizontalDistance > 0) {
-            aimedShooterSpeed = (0.00333057 * Math.pow(33.55221, horizontalDistance)) +
-                    (191.64674 * horizontalDistance) +
-                    971.0142;
+            shooterMode = ShooterMode.AUTO;
+
+            // Tuning Constants
+            double A = 25.0;
+            double B = 140.0;
+            double C = 960.0;
+
+            // --- ADDED OFFSET ---
+            // Add a flat 50-100 ticks/sec to "over-shoot" the target slightly.
+            // Or use a multiplier like 1.05 for 5% extra power.
+            double extraPower = 50.0;
+
+            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) + extraPower;
         }
 
         // 3. Determine final velocity based on mode
         switch (shooterMode) {
             case AUTO:
-                // If in auto, use the distance calculation
                 targetShooterVelocity = (horizontalDistance > 0) ? aimedShooterSpeed : 0;
                 break;
-            case CLOSE:
-                targetShooterVelocity = 1200;
-                break;
-            case MID:
-                targetShooterVelocity = 1350;
-                break;
-            case FAR:
-                targetShooterVelocity = 1700;
-                break;
-            case BACK:
-                targetShooterVelocity = -500;
-                break;
-            case ZERO:
-            default:
-                targetShooterVelocity = 0;
-                break;
+            case CLOSE: targetShooterVelocity = 1200; break;
+            case MID:   targetShooterVelocity = 1350; break;
+            case FAR:   targetShooterVelocity = 1700; break;
+            case BACK:  targetShooterVelocity = -500; break;
+            default:    targetShooterVelocity = 0;    break;
         }
 
-        // 4. Clamp and Apply
-        targetShooterVelocity = Math.min(targetShooterVelocity, 2000);
+        // 4. Clamp and Apply Gear Ratio
+        targetShooterVelocity = Math.min(targetShooterVelocity, 2100);
+
+        // This math is correct ONLY if motor has 15T and wheel has 7T
         double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
 
         leftShooter.setVelocity(scaledVelocity);
