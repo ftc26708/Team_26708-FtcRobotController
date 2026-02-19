@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 
-@TeleOp(name = "DECODE TeleOp")
+@TeleOp(name = "Decode TeleOp LumoJUMP")
 public class DecodeTeleOp extends LinearOpMode {
     // Motors
     private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive;
@@ -41,7 +41,8 @@ public class DecodeTeleOp extends LinearOpMode {
         MID,
         FAR
     }
-    ShooterMode shooterMode = ShooterMode.ZERO;
+
+    ShooterMode shooterMode = ShooterMode.AUTO;
 
     @Override
     public void runOpMode() {
@@ -134,27 +135,53 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void shooterLogic() {
-        if (gamepad2.right_bumper)       shooterMode = ShooterMode.AUTO;
+        // 1. Manual Overrides (Driver can still force a mode)
+        if (gamepad2.a)  shooterMode = ShooterMode.ZERO;
+        if (gamepad2.b)  shooterMode = ShooterMode.CLOSE;
+        if (gamepad2.x)  shooterMode = ShooterMode.MID;
+        if (gamepad2.y)  shooterMode = ShooterMode.FAR;
         if (gamepad2.right_stick_button) shooterMode = ShooterMode.BACK;
-        if (gamepad2.a)                  shooterMode = ShooterMode.ZERO;
-        if (gamepad2.b)                  shooterMode = ShooterMode.CLOSE;
-        if (gamepad2.x)                  shooterMode = ShooterMode.MID;
-        if (gamepad2.y)                  shooterMode = ShooterMode.FAR;
+        if (gamepad2.right_bumper) shooterMode = ShooterMode.AUTO;
 
-        if (horizontalDistance != -1)         aimedShooterSpeed = (0.00333057 * Math.pow(33.55221, horizontalDistance)) + (191.64674 * horizontalDistance) + 971.0142;
-        if (shooterMode == ShooterMode.AUTO)  targetShooterVelocity = aimedShooterSpeed;
-        if (shooterMode == ShooterMode.BACK)  targetShooterVelocity = -500;
-        if (shooterMode == ShooterMode.ZERO)  targetShooterVelocity = 0;
-        if (shooterMode == ShooterMode.CLOSE) targetShooterVelocity = 1200;
-        if (shooterMode == ShooterMode.MID)   targetShooterVelocity = 1350;
-        if (shooterMode == ShooterMode.FAR)   targetShooterVelocity = 1700;
-        if (targetShooterVelocity > 2000)     targetShooterVelocity = 2000;
+        // 2. AUTOMATIC HIJACK: If Limelight sees a tag, force AUTO mode
+        if (horizontalDistance > 0) {
+            shooterMode = ShooterMode.AUTO;
 
-        DcMotorEx[] shooters = {leftShooter, rightShooter};
-        for (DcMotorEx shooter : shooters) {
-            shooter.setVelocity(targetShooterVelocity * 7/15);
+            // Tuning Constants
+            double A = 25.0;
+            double B = 140.0;
+            double C = 960.0;
+
+            // --- ADDED OFFSET ---
+            // Add a flat 50-100 ticks/sec to "over-shoot" the target slightly.
+            // Or use a multiplier like 1.05 for 5% extra power.
+            double extraPower = 50.0;
+
+            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) + extraPower;
         }
+
+        // 3. Determine final velocity based on mode
+        switch (shooterMode) {
+            case AUTO:
+                targetShooterVelocity = (horizontalDistance > 0) ? aimedShooterSpeed : 0;
+                break;
+            case CLOSE: targetShooterVelocity = 1200; break;
+            case MID:   targetShooterVelocity = 1350; break;
+            case FAR:   targetShooterVelocity = 1700; break;
+            case BACK:  targetShooterVelocity = -500; break;
+            default:    targetShooterVelocity = 0;    break;
+        }
+
+        // 4. Clamp and Apply Gear Ratio
+        targetShooterVelocity = Math.min(targetShooterVelocity, 2100);
+
+        // This math is correct ONLY if motor has 15T and wheel has 7T
+        double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
+
+        leftShooter.setVelocity(scaledVelocity);
+        rightShooter.setVelocity(scaledVelocity);
     }
+
 
     private void initHardware() {
         leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
@@ -216,4 +243,6 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
         telemetry.update();
     }
+
+
 }
