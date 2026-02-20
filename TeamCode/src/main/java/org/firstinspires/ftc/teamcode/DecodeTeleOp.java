@@ -11,6 +11,10 @@ import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.geometry.Pose;
 
 @TeleOp(name = "Decode TeleOp LumoJUMP")
 public class DecodeTeleOp extends LinearOpMode {
@@ -25,8 +29,8 @@ public class DecodeTeleOp extends LinearOpMode {
     // Constants
     private double targetX;
     private double targetY;
-    private final double KP = 0.075;
-    private final double KF = 0.015;
+    private final double KP = 0.075; //proportional constant
+    private final double KF = 0.015; //proportional constant
     private final double MAX_TURN_OUTPUT = 0.75;
 
     // Variables
@@ -34,6 +38,10 @@ public class DecodeTeleOp extends LinearOpMode {
     private double yaw = 0;
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
+    private com.qualcomm.robotcore.util.ElapsedTime matchTimer = new com.qualcomm.robotcore.util.ElapsedTime();
+    private boolean autoParking = false;
+    private Follower follower; // This handles the PedroPathing movement
+
     private double aimedShooterSpeed = 0;
     private enum ShooterMode {
         AUTO,
@@ -203,7 +211,20 @@ public class DecodeTeleOp extends LinearOpMode {
         rightShooter.setVelocity(scaledVelocity);
     }
 
-
+//    private void handleEndgameAutoPark() {
+//        if (autoParking) return;
+//        if (matchTimer.seconds() < 90) return;
+//
+//        if (gamepad1.x) {
+//            autoParking = true;
+//
+//            Pose parkPose = (alliance == Alliance.RED)
+//                    ? Pose.fromField(58, 12, Math.toRadians(180))
+//                    : Pose.fromField(58, -12, Math.toRadians(180));
+//
+//            follower.setTargetPose(parkPose);
+//        }
+//    }
     private void initHardware() {
         leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
         leftFrontDrive = hardwareMap.get(DcMotorEx.class, "LF");
@@ -261,6 +282,8 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
         telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
+        telemetry.addData("Shooter Mode", shooterMode);
+        telemetry.addData("Dist", aimedShooterSpeed);
         telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
         telemetry.update();
     }
