@@ -214,9 +214,9 @@ public class DecodeTeleOp extends LinearOpMode {
             // --- ADDED OFFSET ---
             // Add a flat 50-100 ticks/sec to "over-shoot" the target slightly.
             // Or use a multiplier like 1.05 for 5% extra power.
-            double extraPower = 50.0;
+            double extraPower = 1.02;
 
-            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) + extraPower;
+            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) * extraPower;
         }
 
         // 3. Determine final velocity based on mode
