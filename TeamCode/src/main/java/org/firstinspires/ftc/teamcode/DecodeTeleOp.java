@@ -13,8 +13,7 @@ import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose3D;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
-import com.pedropathing.geometry.Pose;
-import com.pedropathing.geometry.Pose;
+
 
 @TeleOp(name = "Decode TeleOp LumoJUMP")
 public class DecodeTeleOp extends LinearOpMode {
@@ -41,7 +40,8 @@ public class DecodeTeleOp extends LinearOpMode {
     private com.qualcomm.robotcore.util.ElapsedTime matchTimer = new com.qualcomm.robotcore.util.ElapsedTime();
     private boolean autoParking = false;
     private Follower follower; // This handles the PedroPathing movement
-
+    private boolean isFullyAimed = false;
+    private double autoFireStartTime = -1;
     private double aimedShooterSpeed = 0;
     private enum ShooterMode {
         AUTO,
@@ -122,9 +122,11 @@ public class DecodeTeleOp extends LinearOpMode {
         }
 
         // Overrides above case
-        if (gamepad2.right_trigger_pressed) {
+        // Overrides above case
+        if (gamepad2.right_trigger > 0.5) { // Use > 0.5 for triggers
             autoAimEnabled = true;
         }
+
     }
 
     private void drive() {
@@ -134,34 +136,62 @@ public class DecodeTeleOp extends LinearOpMode {
 
         LLResult result = limelight.getLatestResult();
 
+        // Handle Auto-Aiming
         if (autoAimEnabled && result != null && result.isValid()) {
             double tx = result.getTx();
             turn = tx * KP + Math.signum(tx) * KF;
             turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
+
+            // Start the sequence if we are pointing at the target and not already running
+            if (Math.abs(tx) < 1.0 && autoFireStartTime == -1) {
+                isFullyAimed = true;
+                autoFireStartTime = getRuntime();
+            }
         }
+        // If we lose the tag or trigger is released, the reset happens in intakeAndTransfer
 
-        double LB = drive + turn - strafe;
-        double RB = drive - turn + strafe;
-        double LF = drive + turn + strafe;
-        double RF = drive - turn - strafe;
+        // --- DRIVE MOTOR CALCULATIONS ---
+        double p1 = drive + strafe + turn; // LF
+        double p2 = drive - strafe + turn; // LB
+        double p3 = drive - strafe - turn; // RF
+        double p4 = drive + strafe - turn; // RB
 
-        double coeff = (gamepad1.left_stick_button || gamepad1.right_stick_button) ? 2800.0 : 1200.0;
-
-        leftBackDrive.setVelocity(LB * coeff);
-        rightBackDrive.setVelocity(RB * coeff);
-        leftFrontDrive.setVelocity(LF * coeff);
-        rightFrontDrive.setVelocity(RF * coeff);
+        leftFrontDrive.setPower(p1);
+        leftBackDrive.setPower(p2);
+        rightFrontDrive.setPower(p3);
+        rightBackDrive.setPower(p4);
     }
 
+
     private void intakeAndTransfer() {
-        intakeMotor.setPower(-gamepad2.left_stick_y);
-        if (gamepad2.left_bumper) {
-            transferMotor.setPower(-1.0);
+        // --- AUTO-FIRE SEQUENCE ---
+        if (isFullyAimed && autoFireStartTime != -1) {
+            double timeElapsed = getRuntime() - autoFireStartTime;
+
+            // Fire for 3 seconds after being fully aimed
+            if (timeElapsed < 3.0) {
+                intakeMotor.setPower(1.0);    // Spin intake forward
+                transferMotor.setPower(-1.0); // Spin transfer to shoot
+            } else {
+                // After 3 seconds, stop the sequence and reset
+                isFullyAimed = false;
+                autoFireStartTime = -1;
+                // Optional: Automatically disable auto-aim so the driver has full control back
+                autoAimEnabled = false;
+            }
         } else {
-            transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
+            // --- MANUAL CONTROLS ---
+            // This runs only if the auto-fire sequence isn't active
+            intakeMotor.setPower(-gamepad2.left_stick_y);
+            if (gamepad2.left_bumper) {
+                transferMotor.setPower(-1.0);
+            } else {
+                transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
+            }
         }
         telemetry.addData("Transfer Power", transferMotor.getPower());
     }
+
 
     private void shooterLogic() {
         // 1. Manual Overrides (Driver can still force a mode)
@@ -284,6 +314,8 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
         telemetry.addData("Shooter Mode", shooterMode);
         telemetry.addData("Dist", aimedShooterSpeed);
+        telemetry.addData("Shooter Speed", targetShooterVelocity);
+
         telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
         telemetry.update();
     }
