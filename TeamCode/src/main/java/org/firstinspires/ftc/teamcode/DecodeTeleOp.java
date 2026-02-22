@@ -28,7 +28,7 @@ public class DecodeTeleOp extends LinearOpMode {
     // Constants
     private double targetX;
     private double targetY;
-    private final double KP = 0.075; //proportional constant
+    private final double KP = 0.020; //proportional constant
     private final double KF = 0.015; //proportional constant
     private final double MAX_TURN_OUTPUT = 0.75;
 
@@ -136,65 +136,69 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void drive() {
-        // 1. Determine Base Speed Mode based on your current stick button logic
+        // 1. Determine Base Speed Mode
         if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
             driveSpeed = DriveSpeed.FAST;
-
-            // ULTRA MODE: If already in FAST and holding A
-            if (gamepad1.a) {
-                driveSpeed = DriveSpeed.ULTRA;
+            if (gamepad1.a) {driveSpeed = DriveSpeed.ULTRA;
             }
         } else {
             driveSpeed = DriveSpeed.SLOW;
         }
 
-        // 2. Set Multipliers (Tuned for Mecanum control)
+        // 2. Set Multipliers
         double speedMultiplier;
         switch (driveSpeed) {
-            case ULTRA:
-                speedMultiplier = 1.0;  // 100% Power
-                break;
-            case FAST:
-                speedMultiplier = 0.75; // 75% Power
-                break;
+            case ULTRA: speedMultiplier = 1.0;  break;
+            case FAST:  speedMultiplier = 0.85; break;
             case SLOW:
-            default:
-                speedMultiplier = 0.45; // 45% Power
-                break;
+            default:    speedMultiplier = 0.45; break;
         }
 
-        // 3. Apply multiplier to inputs
+        // 3. Get Joystick Inputs
         double drive = -gamepad1.left_stick_y * speedMultiplier;
         double strafe = gamepad1.left_stick_x * speedMultiplier;
         double turn = gamepad1.right_stick_x * speedMultiplier;
 
         LLResult result = limelight.getLatestResult();
 
-        // Handle Auto-Aiming (Rotation Hijack)
+        // 4. Handle Auto-Aiming (Rotation Hijack)
         if (autoAimEnabled && result != null && result.isValid()) {
-            double tx = result.getTx();
-            turn = tx * KP + Math.signum(tx) * KF;
-            turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
+            double tx = result.getTx(); // The horizontal offset from crosshair
 
-            if (Math.abs(tx) < 1.0 && autoFireStartTime == -1) {
-                isFullyAimed = true;
-                autoFireStartTime = getRuntime();
+            // DEADBAND: If error is less than 1.0 degree, stop turning
+            if (Math.abs(tx) < 1.0) {
+                turn = 0;
+                // Start the fire timer if we haven't already
+                if (autoFireStartTime == -1) {
+                    isFullyAimed = true;
+                    autoFireStartTime = getRuntime();
+                }
+            } else {
+                // Calculation: Error * Proportional + Constant Friction Kick
+                // We use Math.signum(tx) to ensure KF always pushes TOWARDS the target
+                turn = (tx * KP) + (Math.signum(tx) * KF);
+
+                // Limit the turn speed so it doesn't whip around too fast
+                turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
+
+                isFullyAimed = false;
+                autoFireStartTime = -1;
             }
-        } else {
-            isFullyAimed = false;
-            autoFireStartTime = -1;
         }
 
-        // --- DRIVE MOTOR CALCULATIONS ---
+        // 5. Mecanum Motor Calculations
         double p1 = drive + strafe + turn; // LF
         double p2 = drive - strafe + turn; // LB
         double p3 = drive - strafe - turn; // RF
         double p4 = drive + strafe - turn; // RB
 
-        leftFrontDrive.setPower(p1);
-        leftBackDrive.setPower(p2);
-        rightFrontDrive.setPower(p3);
-        rightBackDrive.setPower(p4);
+        // Normalize powers if any exceed 1.0
+        double max = Math.max(1.0, Math.max(Math.abs(p1), Math.max(Math.abs(p2), Math.max(Math.abs(p3), Math.abs(p4)))));
+
+        leftFrontDrive.setPower(p1 / max);
+        leftBackDrive.setPower(p2 / max);
+        rightFrontDrive.setPower(p3 / max);
+        rightBackDrive.setPower(p4 / max);
     }
 
 
@@ -205,8 +209,8 @@ public class DecodeTeleOp extends LinearOpMode {
 
             // Fire for 3 seconds after being fully aimed
             if (timeElapsed < 3.0) {
-                intakeMotor.setPower(1.0);    // Spin intake forward
-                transferMotor.setPower(-1.0); // Spin transfer to shoot
+                intakeMotor.setPower(0.5);    // Spin intake forward
+                transferMotor.setPower(0.7); // Spin transfer to shoot
             } else {
                 // After 3 seconds, stop the sequence and reset
                 isFullyAimed = false;
