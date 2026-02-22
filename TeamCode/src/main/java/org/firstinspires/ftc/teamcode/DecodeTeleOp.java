@@ -43,6 +43,12 @@ public class DecodeTeleOp extends LinearOpMode {
     private boolean isFullyAimed = false;
     private double autoFireStartTime = -1;
     private double aimedShooterSpeed = 0;
+    private enum DriveSpeed {
+        SLOW,
+        FAST,
+        ULTRA
+    }
+    private DriveSpeed driveSpeed = DriveSpeed.SLOW;
     private enum ShooterMode {
         AUTO,
         BACK,
@@ -130,25 +136,54 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void drive() {
-        double drive = -gamepad1.left_stick_y;
-        double strafe = gamepad1.left_stick_x;
-        double turn = gamepad1.right_stick_x;
+        // 1. Determine Base Speed Mode based on your current stick button logic
+        if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
+            driveSpeed = DriveSpeed.FAST;
+
+            // ULTRA MODE: If already in FAST and holding A
+            if (gamepad1.a) {
+                driveSpeed = DriveSpeed.ULTRA;
+            }
+        } else {
+            driveSpeed = DriveSpeed.SLOW;
+        }
+
+        // 2. Set Multipliers (Tuned for Mecanum control)
+        double speedMultiplier;
+        switch (driveSpeed) {
+            case ULTRA:
+                speedMultiplier = 1.0;  // 100% Power
+                break;
+            case FAST:
+                speedMultiplier = 0.75; // 75% Power
+                break;
+            case SLOW:
+            default:
+                speedMultiplier = 0.45; // 45% Power
+                break;
+        }
+
+        // 3. Apply multiplier to inputs
+        double drive = -gamepad1.left_stick_y * speedMultiplier;
+        double strafe = gamepad1.left_stick_x * speedMultiplier;
+        double turn = gamepad1.right_stick_x * speedMultiplier;
 
         LLResult result = limelight.getLatestResult();
 
-        // Handle Auto-Aiming
+        // Handle Auto-Aiming (Rotation Hijack)
         if (autoAimEnabled && result != null && result.isValid()) {
             double tx = result.getTx();
             turn = tx * KP + Math.signum(tx) * KF;
             turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
 
-            // Start the sequence if we are pointing at the target and not already running
             if (Math.abs(tx) < 1.0 && autoFireStartTime == -1) {
                 isFullyAimed = true;
                 autoFireStartTime = getRuntime();
             }
+        } else {
+            isFullyAimed = false;
+            autoFireStartTime = -1;
         }
-        // If we lose the tag or trigger is released, the reset happens in intakeAndTransfer
 
         // --- DRIVE MOTOR CALCULATIONS ---
         double p1 = drive + strafe + turn; // LF
@@ -316,7 +351,11 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Dist", aimedShooterSpeed);
         telemetry.addData("Shooter Speed", targetShooterVelocity);
 
-        telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
+        // Updated Drive Mode Telemetry
+        String modeName = driveSpeed.toString();
+        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 75 : 45);
+
+        telemetry.addData("Drive Mode", "%s (%.0f%%)", modeName, powerPercent);
         telemetry.update();
     }
 
