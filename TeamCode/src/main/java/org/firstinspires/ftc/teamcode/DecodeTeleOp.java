@@ -347,9 +347,10 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
         telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
-        telemetry.addData("Shooter Mode", shooterMode);
+        telemetry.addData("SHOOTER MODE:", shooterMode);
         telemetry.addData("Dist", aimedShooterSpeed);
         telemetry.addData("Shooter Speed", targetShooterVelocity);
+
 
         // Updated Drive Mode Telemetry
         String modeName = driveSpeed.toString();
