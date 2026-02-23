@@ -32,7 +32,18 @@ public class DecodeTeleOp extends LinearOpMode {
     private double horizontalDistance = -1;
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
+    private com.qualcomm.robotcore.util.ElapsedTime matchTimer = new com.qualcomm.robotcore.util.ElapsedTime();
+    private boolean autoParking = false;
+    private Follower follower; // This handles the PedroPathing movement
+    private boolean isFullyAimed = false;
+    private double autoFireStartTime = -1;
     private double aimedShooterSpeed = 0;
+    private enum DriveSpeed {
+        SLOW,
+        FAST,
+        ULTRA
+    }
+    private DriveSpeed driveSpeed = DriveSpeed.SLOW;
     private enum ShooterMode {
         AUTO,
         BACK,
@@ -93,46 +104,109 @@ public class DecodeTeleOp extends LinearOpMode {
         }
 
         // Overrides above case
-        if (gamepad2.right_trigger_pressed) {
+        // Overrides above case
+        if (gamepad2.right_trigger > 0.5) { // Use > 0.5 for triggers
             autoAimEnabled = true;
         }
+
     }
 
     private void drive() {
-        double drive = -gamepad1.left_stick_y;
-        double strafe = gamepad1.left_stick_x;
-        double turn = gamepad1.right_stick_x;
+        // 1. Determine Base Speed Mode
+        if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
+            driveSpeed = DriveSpeed.FAST;
+            if (gamepad1.a) {driveSpeed = DriveSpeed.ULTRA;
+            }
+        } else {
+            driveSpeed = DriveSpeed.SLOW;
+        }
+
+        // 2. Set Multipliers
+        double speedMultiplier;
+        switch (driveSpeed) {
+            case ULTRA: speedMultiplier = 1.0;  break;
+            case FAST:  speedMultiplier = 0.85; break;
+            case SLOW:
+            default:    speedMultiplier = 0.45; break;
+        }
+
+        // 3. Get Joystick Inputs
+        double drive = -gamepad1.left_stick_y * speedMultiplier;
+        double strafe = gamepad1.left_stick_x * speedMultiplier;
+        double turn = gamepad1.right_stick_x * speedMultiplier;
 
         LLResult result = limelight.getLatestResult();
 
+        // 4. Handle Auto-Aiming (Rotation Hijack)
         if (autoAimEnabled && result != null && result.isValid()) {
-            double tx = result.getTx();
-            turn = tx * KP + Math.signum(tx) * KF;
-            turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
+            double tx = result.getTx(); // The horizontal offset from crosshair
+
+            // DEADBAND: If error is less than 1.0 degree, stop turning
+            if (Math.abs(tx) < 1.0) {
+                turn = 0;
+                // Start the fire timer if we haven't already
+                if (autoFireStartTime == -1) {
+                    isFullyAimed = true;
+                    autoFireStartTime = getRuntime();
+                }
+            } else {
+                // Calculation: Error * Proportional + Constant Friction Kick
+                // We use Math.signum(tx) to ensure KF always pushes TOWARDS the target
+                turn = (tx * KP) + (Math.signum(tx) * KF);
+
+                // Limit the turn speed so it doesn't whip around too fast
+                turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
+
+                isFullyAimed = false;
+                autoFireStartTime = -1;
+            }
         }
 
-        double LB = drive + turn - strafe;
-        double RB = drive - turn + strafe;
-        double LF = drive + turn + strafe;
-        double RF = drive - turn - strafe;
+        // 5. Mecanum Motor Calculations
+        double p1 = drive + strafe + turn; // LF
+        double p2 = drive - strafe + turn; // LB
+        double p3 = drive - strafe - turn; // RF
+        double p4 = drive + strafe - turn; // RB
 
-        double coeff = (gamepad1.left_stick_button || gamepad1.right_stick_button) ? 2800.0 : 1200.0;
+        // Normalize powers if any exceed 1.0
+        double max = Math.max(1.0, Math.max(Math.abs(p1), Math.max(Math.abs(p2), Math.max(Math.abs(p3), Math.abs(p4)))));
 
-        leftBackDrive.setVelocity(LB * coeff);
-        rightBackDrive.setVelocity(RB * coeff);
-        leftFrontDrive.setVelocity(LF * coeff);
-        rightFrontDrive.setVelocity(RF * coeff);
+        leftFrontDrive.setPower(p1 / max);
+        leftBackDrive.setPower(p2 / max);
+        rightFrontDrive.setPower(p3 / max);
+        rightBackDrive.setPower(p4 / max);
     }
 
+
     private void intakeAndTransfer() {
-        intakeMotor.setPower(-gamepad2.left_stick_y);
-        if (gamepad2.left_bumper) {
-            transferMotor.setPower(-1.0);
+        // --- AUTO-FIRE SEQUENCE ---
+        if (isFullyAimed && autoFireStartTime != -1) {
+            double timeElapsed = getRuntime() - autoFireStartTime;
+
+            // Fire for 3 seconds after being fully aimed
+            if (timeElapsed < 3.0) {
+                intakeMotor.setPower(0.5);    // Spin intake forward
+                transferMotor.setPower(0.7); // Spin transfer to shoot
+            } else {
+                // After 3 seconds, stop the sequence and reset
+                isFullyAimed = false;
+                autoFireStartTime = -1;
+                // Optional: Automatically disable auto-aim so the driver has full control back
+                autoAimEnabled = false;
+            }
         } else {
-            transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
+            // --- MANUAL CONTROLS ---
+            // This runs only if the auto-fire sequence isn't active
+            intakeMotor.setPower(-gamepad2.left_stick_y);
+            if (gamepad2.left_bumper) {
+                transferMotor.setPower(-1.0);
+            } else {
+                transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
+            }
         }
         telemetry.addData("Transfer Power", transferMotor.getPower());
     }
+
 
     private void shooterLogic() {
         // 1. Manual Overrides (Driver can still force a mode)
@@ -155,9 +229,9 @@ public class DecodeTeleOp extends LinearOpMode {
             // --- ADDED OFFSET ---
             // Add a flat 50-100 ticks/sec to "over-shoot" the target slightly.
             // Or use a multiplier like 1.05 for 5% extra power.
-            double extraPower = 50.0;
+            double extraPower = 1.02;
 
-            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) + extraPower;
+            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) * extraPower;
         }
 
         // 3. Determine final velocity based on mode
@@ -182,7 +256,20 @@ public class DecodeTeleOp extends LinearOpMode {
         rightShooter.setVelocity(scaledVelocity);
     }
 
-
+//    private void handleEndgameAutoPark() {
+//        if (autoParking) return;
+//        if (matchTimer.seconds() < 90) return;
+//
+//        if (gamepad1.x) {
+//            autoParking = true;
+//
+//            Pose parkPose = (alliance == Alliance.RED)
+//                    ? Pose.fromField(58, 12, Math.toRadians(180))
+//                    : Pose.fromField(58, -12, Math.toRadians(180));
+//
+//            follower.setTargetPose(parkPose);
+//        }
+//    }
     private void initHardware() {
         leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
         leftFrontDrive = hardwareMap.get(DcMotorEx.class, "LF");
@@ -240,7 +327,16 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
         telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
-        telemetry.addLine("Drive Mode: " + ((gamepad1.left_stick_button || gamepad1.right_stick_button) ? "FAST (2800)" : "SLOW (1050)"));
+        telemetry.addData("SHOOTER MODE:", shooterMode);
+        telemetry.addData("Dist", aimedShooterSpeed);
+        telemetry.addData("Shooter Speed", targetShooterVelocity);
+
+
+        // Updated Drive Mode Telemetry
+        String modeName = driveSpeed.toString();
+        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 75 : 45);
+
+        telemetry.addData("Drive Mode", "%s (%.0f%%)", modeName, powerPercent);
         telemetry.update();
     }
 
