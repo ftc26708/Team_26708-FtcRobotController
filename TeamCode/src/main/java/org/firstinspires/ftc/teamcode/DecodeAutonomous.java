@@ -77,6 +77,10 @@ public class DecodeAutonomous extends OpMode {
 
     public void init() {}
 
+    public void stop() {
+        DataPasser.endAutoPose = follower.getPose();
+    }
+
     @Override
     public void init_loop() {
         switch (initState) {
