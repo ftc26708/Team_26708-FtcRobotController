@@ -23,30 +23,32 @@ public class DecodeTeleOp extends LinearOpMode {
     private Limelight3A limelight;
 
     // Constants
-    final double MOUNT_HEIGHT = 0.26035;
-    final double TARGET_HEIGHT = 0.74930;
+    final double MOUNT_HEIGHT = 0.26035; // Meters
+    final double TARGET_HEIGHT = 0.74930; // Meters
     final double MOUNT_ANGLE = 16.0;
-    private final Pose BLUE_GOAL_POSE = new Pose(144, 108, 0); // Pedro Coords: X is forward, Y is left
-    private final Pose RED_GOAL_POSE = new Pose(144, 36, 0);
-    private final double KP = 0.030;
+    private final double METERS_TO_INCHES = 39.3701;
+    private final Pose BLUE_GOAL_POSE = new Pose(6, 138, 0);
+    private final Pose RED_GOAL_POSE = new Pose(138, 138, 0);
+    private final double KP = 0.020;
     private final double KF = 0.015;
-    private final double MAX_TURN_OUTPUT = 0.75;
+    private final double MAX_TURN_OUTPUT = 0.6;
 
     // Variables
     private double horizontalDistance = -1;
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
-    private ElapsedTime matchTimer = new ElapsedTime();
+    private final ElapsedTime matchTimer = new ElapsedTime();
     private boolean autoParking = false;
-    private Follower follower; // This hand les the PedroPathing movement
+    private Follower follower; // This handles the PedroPathing movement
     private Pose currentPose = DataPasser.endAutoPose;
     private boolean drivetrainReady = false;
     private boolean shooterReady = false;
-    private double autoFireStartTime = -1;
     private double aimedShooterSpeed = 0;
     private boolean autoAimedLastFrame = false;
     private boolean relocalizedThisCycle = false;
     private double odometryTurnError = 0;
+    private boolean lastDpadLeft = false;
+    private boolean lastDpadRight = false;
 
     private enum DriveSpeed {
         SLOW,
@@ -73,19 +75,41 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Status", "Initialized, waiting");
         telemetry.update();
         waitForStart();
+        matchTimer.reset();
 
         while (opModeIsActive()) {
-            localization();
-            drive();
-            intakeAndTransfer();
-            shooterLogic();
-            updateTelemetry();
+            if (matchTimer.seconds() > 120) {
+                stop();
+            } else {
+                localization();
+                drive();
+                intakeAndTransfer();
+                shooterLogic();
+                updateTelemetry();
+            }
         }
     }
 
     private void localization() {
         follower.update();
         currentPose = follower.getPose();
+
+        // Nudges the heading by 0.5 degrees per distinct press
+        // D-pad Left increases angle (Counter-Clockwise), Right decreases (Clockwise)
+        if (gamepad2.dpad_left && !lastDpadLeft) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() + Math.toRadians(0.5)));
+        }
+        if (gamepad2.dpad_right && !lastDpadRight) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() - Math.toRadians(0.5)));
+        }
+        // Reset yaw
+        if (gamepad2.dpad_up) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), Math.toRadians(90)));
+
+        }
+
+        lastDpadLeft = gamepad2.dpad_left;
+        lastDpadRight = gamepad2.dpad_right;
 
         if (gamepad2.right_trigger > 0.5 && !autoAimedLastFrame) {
             autoAimEnabled = true;
@@ -97,14 +121,16 @@ public class DecodeTeleOp extends LinearOpMode {
             LLResult result = limelight.getLatestResult();
             if (result != null && result.isValid()) {
                 double ty = result.getTy();
+                double tx = result.getTx();
                 double totalAngleRadians = Math.toRadians(MOUNT_ANGLE + ty);
-                double visionDistance = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
+                double visionDistanceMeters = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
+                double visionDistanceInches = visionDistanceMeters * METERS_TO_INCHES;
 
                 Pose target = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE : BLUE_GOAL_POSE;
-                double angleToGoalField = currentPose.getHeading() - Math.toRadians(result.getTx());
+                double angleToGoalField = currentPose.getHeading() - Math.toRadians(tx);
 
-                double newX = target.getX() - (Math.cos(angleToGoalField) * visionDistance);
-                double newY = target.getY() - (Math.sin(angleToGoalField) * visionDistance);
+                double newX = target.getX() - (Math.cos(angleToGoalField) * visionDistanceInches);
+                double newY = target.getY() - (Math.sin(angleToGoalField) * visionDistanceInches);
 
                 follower.setPose(new Pose(newX, newY, currentPose.getHeading()));
                 relocalizedThisCycle = true;
@@ -137,7 +163,6 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void drive() {
-        // 1. Determine Base Speed Mode
         if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
             driveSpeed = DriveSpeed.ULTRA;
         } else if (gamepad1.a) {
@@ -146,51 +171,38 @@ public class DecodeTeleOp extends LinearOpMode {
             driveSpeed = DriveSpeed.FAST;
         }
 
-        // 2. Set Multipliers
         double speedMultiplier;
         switch (driveSpeed) {
             case ULTRA: speedMultiplier = 1.0;  break;
-            case FAST:  speedMultiplier = 0.60; break;
+            case FAST:  speedMultiplier = 0.40; break;
             case SLOW:
             default:    speedMultiplier = 0.20; break;
         }
 
-        // 3. Get Joystick Inputs
-        double drive = -gamepad1.left_stick_y * speedMultiplier;
-        double strafe = gamepad1.left_stick_x * speedMultiplier;
-        double turn = gamepad1.right_stick_x * speedMultiplier;
+        double forwardRaw = -gamepad1.left_stick_y * speedMultiplier;
+        double strafeLeftRaw = -gamepad1.left_stick_x * speedMultiplier;
+        double turnRaw = -gamepad1.right_stick_x * speedMultiplier;
 
-        // 4. Handle Auto-Aiming
+        drivetrainReady = false;
         if (autoAimEnabled) {
-            if (Math.abs(odometryTurnError) < 1.0) {
-                turn = 0;
-                if (autoFireStartTime == -1) {
-                    drivetrainReady = true;
-                }
+            if (Math.abs(odometryTurnError) < 2.5) {
+                turnRaw = 0;
+                drivetrainReady = true;
             } else {
-                turn = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
-                turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
-                drivetrainReady = false;
+                turnRaw = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+                turnRaw = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turnRaw));
             }
         }
 
-        // 5. Mecanum Motor Calculations
-        double p1 = drive + strafe + turn; // LF
-        double p2 = drive - strafe + turn; // LB
-        double p3 = drive - strafe - turn; // RF
-        double p4 = drive + strafe - turn; // RB
-
-        // Normalize powers if any exceed 1.0
-        double max = Math.max(1.0, Math.max(Math.abs(p1), Math.max(Math.abs(p2), Math.max(Math.abs(p3), Math.abs(p4)))));
-
-        leftFrontDrive.setPower(p1 / max);
-        leftBackDrive.setPower(p2 / max);
-        rightFrontDrive.setPower(p3 / max);
-        rightBackDrive.setPower(p4 / max);
+        if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+            follower.setTeleOpDrive(-forwardRaw, -strafeLeftRaw, turnRaw, false);
+        } else {
+            follower.setTeleOpDrive(forwardRaw, strafeLeftRaw, turnRaw, false);
+        }
     }
 
     private void intakeAndTransfer() {
-        // --- AUTO-FIRE SEQUENCE ---
+        // AUTO-FIRE SEQUENCE
         if (drivetrainReady && shooterReady && autoAimEnabled) {
             // Fire only when fully aimed
             intakeMotor.setPower(0.5); // Spin intake forward
@@ -220,8 +232,8 @@ public class DecodeTeleOp extends LinearOpMode {
         // 2. Find necessary velocity
         if (horizontalDistance > 0) {
             // Tuning Constants
-            double A = 25.5;
-            double B = 143.0;
+            double A = 25.5 / Math.pow(METERS_TO_INCHES, 2);
+            double B = 143.0 / METERS_TO_INCHES;
             double C = 980.0;
 
             aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C);
@@ -235,16 +247,15 @@ public class DecodeTeleOp extends LinearOpMode {
             case CLOSE: targetShooterVelocity = 1200; break;
             case MID:   targetShooterVelocity = 1350; break;
             case FAR:   targetShooterVelocity = 1700; break;
-            case BACK:  targetShooterVelocity = -500; break;
+            case BACK:  targetShooterVelocity = -600; break;
             default:    targetShooterVelocity = 0;    break;
         }
 
-        // 4. Clamp and Apply Gear Ratio
+        // 4. Clamp Velocity and convert RPM to TPS
         targetShooterVelocity = Math.min(targetShooterVelocity, 2100);
-
-        // Convert RPM to TPS
         double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
 
+        // 5. Set velocities
         leftShooter.setVelocity(scaledVelocity);
         rightShooter.setVelocity(scaledVelocity);
 
@@ -294,6 +305,8 @@ public class DecodeTeleOp extends LinearOpMode {
 
         follower = Constants.createFollower(hardwareMap);
         follower.setStartingPose(DataPasser.endAutoPose);
+        follower.startTeleopDrive();
+
         limelight = hardwareMap.get(Limelight3A.class, "LM");
         if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
             limelight.pipelineSwitch(1);
@@ -304,21 +317,29 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void updateTelemetry() {
-        telemetry.addData("Target Found", (horizontalDistance == -1) ? "NO" : "YES");
-        telemetry.addData("Distance to Target", "%.2f", horizontalDistance);
-        telemetry.addData("Shooter Velocity", targetShooterVelocity);
-        telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
-        telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
+        telemetry.addLine("FIELD POSITION");
+        telemetry.addData("Pose", "X: %.1f, Y: %.1f, H: %.1f°",
+                currentPose.getX(), currentPose.getY(), Math.toDegrees(currentPose.getHeading()));
+        telemetry.addData("Alliance", DataPasser.currentAlliance);
+        telemetry.addData("Distance to Goal", "%.2f in", horizontalDistance);
+
+        // --- VISION & STATUS ---
+        telemetry.addLine("SYSTEM STATUS");
+        telemetry.addData("Limelight Lock", (horizontalDistance != -1) ? "LOCKED" : "SEARCHING");
+        telemetry.addData("Relocalized", relocalizedThisCycle ? "YES" : "NO");
         telemetry.addData("Auto-Aim Active", autoAimEnabled);
-        telemetry.addData("SHOOTER MODE:", shooterMode);
-        telemetry.addData("Dist", aimedShooterSpeed);
-        telemetry.addData("Shooter Speed", targetShooterVelocity);
 
-        // Updated Drive Mode Telemetry
+        telemetry.addLine("MECHANISMS");
+        telemetry.addData("Mode", shooterMode);
+        telemetry.addData("Ready to Fire", (drivetrainReady && shooterReady) ? "READY" : "WAITING");
+        telemetry.addData("Target RPM", targetShooterVelocity);
+        telemetry.addData("Actual L/R RPM", "%.0f / %.0f",
+                leftShooter.getVelocity() * 15/7, rightShooter.getVelocity() * 15/7);
+
         String modeName = driveSpeed.toString();
-        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 60 : 20);
+        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 40 : 20);
+        telemetry.addData("Drive", "%s (%.0f%%)", modeName, powerPercent);
 
-        telemetry.addData("Drive Mode", "%s (%.0f%%)", modeName, powerPercent);
         telemetry.update();
     }
 }
