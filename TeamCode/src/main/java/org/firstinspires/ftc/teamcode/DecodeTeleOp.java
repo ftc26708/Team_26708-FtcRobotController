@@ -2,7 +2,10 @@ package org.firstinspires.ftc.teamcode;
 
 // Imports
 import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -38,7 +41,6 @@ public class DecodeTeleOp extends LinearOpMode {
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
     private final ElapsedTime matchTimer = new ElapsedTime();
-    private boolean autoParking = false;
     private Follower follower; // This handles the PedroPathing movement
     private Pose currentPose = DataPasser.endAutoPose;
     private boolean drivetrainReady = false;
@@ -49,6 +51,7 @@ public class DecodeTeleOp extends LinearOpMode {
     private double odometryTurnError = 0;
     private boolean lastDpadLeft = false;
     private boolean lastDpadRight = false;
+    private boolean pathAlreadyFollowed = false;
 
     private enum DriveSpeed {
         SLOW,
@@ -64,8 +67,14 @@ public class DecodeTeleOp extends LinearOpMode {
         MID,
         FAR
     }
-
     ShooterMode shooterMode = ShooterMode.AUTO;
+    private enum DriveMode {
+        MANUAL,
+        OPEN_GATE,
+        INTAKE_GATE,
+        PARK
+    }
+    DriveMode driveMode = DriveMode.MANUAL;
 
     @Override
     public void runOpMode() {
@@ -82,9 +91,9 @@ public class DecodeTeleOp extends LinearOpMode {
                 stop();
             } else {
                 localization();
-                drive();
+                drivetrain();
                 intakeAndTransfer();
-                shooterLogic();
+                shooter();
                 updateTelemetry();
             }
         }
@@ -105,7 +114,6 @@ public class DecodeTeleOp extends LinearOpMode {
         // Reset yaw
         if (gamepad2.dpad_up) {
             follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), Math.toRadians(90)));
-
         }
 
         lastDpadLeft = gamepad2.dpad_left;
@@ -162,10 +170,107 @@ public class DecodeTeleOp extends LinearOpMode {
         }
     }
 
-    private void drive() {
+    private void drivetrain() {
+        DriveMode previousDriveMode = driveMode;
+        if (gamepad1.a) {
+            driveMode = DriveMode.PARK;
+        }
+        if (gamepad1.b) {
+            driveMode = DriveMode.OPEN_GATE;
+        }
+        if (gamepad1.right_stick_x != 0 || gamepad1.left_stick_x != 0 || gamepad1.left_stick_y != 0) {
+            driveMode = DriveMode.MANUAL;
+        }
+        if (previousDriveMode != driveMode) {
+            follower.breakFollowing();
+            pathAlreadyFollowed = false;
+        }
+
+        switch (driveMode) {
+            case MANUAL:
+                manualDrive();
+                break;
+
+            case PARK: {
+                Pose endPose;
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        endPose = new Pose(39, 33, 90);
+                    } else {
+                        endPose = new Pose(105, 33, 90);
+                    }
+
+                    PathChain parkPath = follower.pathBuilder()
+                            .addPath(new BezierLine(currentPose, endPose))
+                            .setLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+                    follower.followPath(parkPath, true);
+                    pathAlreadyFollowed = true;
+                }
+                break;
+            }
+
+            case OPEN_GATE: {
+                Pose controlPose;
+                Pose connectorPose;
+                Pose endPose;
+
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        controlPose = new Pose(42, 62, 150);
+                        connectorPose = new Pose(22, 62, 150);
+                        endPose = new Pose(12, 62, 150);
+                    } else {
+                        controlPose = new Pose(102, 62, 150);
+                        connectorPose = new Pose(122, 62, 150);
+                        endPose = new Pose(132, 62, 150);
+                    }
+
+                    PathChain openGate = follower.pathBuilder()
+                            .addPath(new BezierCurve(currentPose, controlPose, connectorPose))
+                            .addPath(new BezierLine(connectorPose, endPose))
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+
+                    follower.followPath(openGate, true);
+                    pathAlreadyFollowed = true;
+                }
+
+                if (!follower.isBusy() && pathAlreadyFollowed) {
+                    driveMode = DriveMode.INTAKE_GATE;
+                }
+                break;
+            }
+
+            case INTAKE_GATE: {
+                Pose controlPose;
+                Pose endPose;
+
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        controlPose = new Pose(12, 54, 90);
+                        endPose = new Pose(9, 51, 90);
+                    } else {
+                        controlPose = new Pose(132, 54, 90);
+                        endPose = new Pose(135, 51, 90);
+                    }
+
+                    PathChain intakeGate = follower.pathBuilder()
+                            .addPath(new BezierCurve(currentPose, controlPose, endPose))
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+
+                    follower.followPath(intakeGate, true);
+                    pathAlreadyFollowed = true;
+                }
+            }
+        }
+    }
+
+    private void manualDrive() {
         if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
             driveSpeed = DriveSpeed.ULTRA;
-        } else if (gamepad1.a) {
+        } else if (gamepad1.left_bumper || gamepad1.right_bumper) {
             driveSpeed = DriveSpeed.SLOW;
         } else {
             driveSpeed = DriveSpeed.FAST;
@@ -220,7 +325,7 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
 
-    private void shooterLogic() {
+    private void shooter() {
         // 1. Manual Mode Setting
         if      (gamepad2.a)                   shooterMode = ShooterMode.BACK;
         else if (gamepad2.b)                   shooterMode = ShooterMode.CLOSE;
@@ -323,7 +428,6 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Alliance", DataPasser.currentAlliance);
         telemetry.addData("Distance to Goal", "%.2f in", horizontalDistance);
 
-        // --- VISION & STATUS ---
         telemetry.addLine("SYSTEM STATUS");
         telemetry.addData("Limelight Lock", (horizontalDistance != -1) ? "LOCKED" : "SEARCHING");
         telemetry.addData("Relocalized", relocalizedThisCycle ? "YES" : "NO");
