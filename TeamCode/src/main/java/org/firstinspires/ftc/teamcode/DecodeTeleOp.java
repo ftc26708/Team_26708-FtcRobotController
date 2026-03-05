@@ -19,19 +19,22 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @TeleOp(name = "DECODE TeleOp")
 public class DecodeTeleOp extends LinearOpMode {
     // Motors
-    private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive;
     private DcMotorEx leftShooter, rightShooter, intakeMotor, transferMotor;
 
     // Sensors
     private Limelight3A limelight;
 
     // Constants
-    final double MOUNT_HEIGHT = 0.26035; // Meters
-    final double TARGET_HEIGHT = 0.74930; // Meters
-    final double MOUNT_ANGLE = 16.0;
     private final double METERS_TO_INCHES = 39.3701;
-    private final Pose BLUE_GOAL_POSE = new Pose(6, 138, 0);
-    private final Pose RED_GOAL_POSE = new Pose(138, 138, 0);
+    final double MOUNT_HEIGHT = 0.26490; // Meters, exact
+    final double TARGET_HEIGHT = 0.74930; // Meters, exact
+    final double MOUNT_ANGLE = Math.toDegrees(Math.asin(0.25));
+    private final double LIMELIGHT_X_OFFSET = 0.154 * METERS_TO_INCHES; // forward, to be measured and changed
+    private final double LIMELIGHT_Y_OFFSET = 0.004 * METERS_TO_INCHES;  // left
+    private final Pose BLUE_GOAL_POSE_RELOC = new Pose(6, 138, 0);
+    private final Pose RED_GOAL_POSE_RELOC = new Pose(138, 138, 0);
+    private final Pose BLUE_GOAL_POSE_AIM = new Pose(6, 138, 0);
+    private final Pose RED_GOAL_POSE_AIM = new Pose(138, 138, 0);
     private final double KP = 0.020;
     private final double KF = 0.015;
     private final double MAX_TURN_OUTPUT = 0.6;
@@ -119,11 +122,11 @@ public class DecodeTeleOp extends LinearOpMode {
         lastDpadLeft = gamepad2.dpad_left;
         lastDpadRight = gamepad2.dpad_right;
 
-        if (gamepad2.right_trigger > 0.5 && !autoAimedLastFrame) {
+        if (gamepad2.right_trigger > 0.1 && !autoAimedLastFrame) {
             autoAimEnabled = true;
             relocalizedThisCycle = false;
         }
-        autoAimedLastFrame = gamepad2.right_trigger > 0.5;
+        autoAimedLastFrame = gamepad2.right_trigger > 0.1;
 
         if (autoAimEnabled && !relocalizedThisCycle) {
             LLResult result = limelight.getLatestResult();
@@ -134,18 +137,25 @@ public class DecodeTeleOp extends LinearOpMode {
                 double visionDistanceMeters = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
                 double visionDistanceInches = visionDistanceMeters * METERS_TO_INCHES;
 
-                Pose target = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE : BLUE_GOAL_POSE;
+                Pose aprilTag = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE_RELOC : BLUE_GOAL_POSE_RELOC;
                 double angleToGoalField = currentPose.getHeading() - Math.toRadians(tx);
 
-                double newX = target.getX() - (Math.cos(angleToGoalField) * visionDistanceInches);
-                double newY = target.getY() - (Math.sin(angleToGoalField) * visionDistanceInches);
+                // Calculate Camera Position
+                double camX = aprilTag.getX() - (Math.cos(angleToGoalField) * visionDistanceInches);
+                double camY = aprilTag.getY() - (Math.sin(angleToGoalField) * visionDistanceInches);
+
+                // Offset Camera to Robot Center
+                double cosH = Math.cos(currentPose.getHeading());
+                double sinH = Math.sin(currentPose.getHeading());
+                double newX = camX - (LIMELIGHT_X_OFFSET * cosH - LIMELIGHT_Y_OFFSET * sinH);
+                double newY = camY - (LIMELIGHT_X_OFFSET * sinH + LIMELIGHT_Y_OFFSET * cosH);
 
                 follower.setPose(new Pose(newX, newY, currentPose.getHeading()));
                 relocalizedThisCycle = true;
             }
         }
 
-        Pose target = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE : BLUE_GOAL_POSE;
+        Pose target = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE_AIM : BLUE_GOAL_POSE_AIM;
         double dx = target.getX() - currentPose.getX();
         double dy = target.getY() - currentPose.getY();
         horizontalDistance = Math.hypot(dx, dy);
@@ -156,16 +166,18 @@ public class DecodeTeleOp extends LinearOpMode {
         while (relativeAngle < -Math.PI) relativeAngle += 2 * Math.PI;
         odometryTurnError = Math.toDegrees(relativeAngle);
 
-        if (gamepad1.dpad_left) {
-            DataPasser.currentAlliance = DataPasser.Alliance.BLUE;
-            limelight.pipelineSwitch(0);
-        }
-        if (gamepad1.dpad_right) {
-            DataPasser.currentAlliance = DataPasser.Alliance.RED;
-            limelight.pipelineSwitch(1);
+        if (gamepad2.dpad_down) {
+            if (gamepad1.dpad_left) {
+                DataPasser.currentAlliance = DataPasser.Alliance.BLUE;
+                limelight.pipelineSwitch(0);
+            }
+            if (gamepad1.dpad_right) {
+                DataPasser.currentAlliance = DataPasser.Alliance.RED;
+                limelight.pipelineSwitch(1);
+            }
         }
 
-        if (Math.abs(gamepad1.left_stick_y) > 0 || Math.abs(gamepad1.left_stick_x) > 0 || Math.abs(gamepad1.right_stick_x) > 0) {
+        if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
             autoAimEnabled = false;
         }
     }
@@ -175,14 +187,18 @@ public class DecodeTeleOp extends LinearOpMode {
         if (gamepad1.a) {
             driveMode = DriveMode.PARK;
         }
-        if (gamepad1.b) {
+        if (gamepad1.y) {
             driveMode = DriveMode.OPEN_GATE;
         }
-        if (gamepad1.right_stick_x != 0 || gamepad1.left_stick_x != 0 || gamepad1.left_stick_y != 0) {
+        if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
             driveMode = DriveMode.MANUAL;
         }
+
         if (previousDriveMode != driveMode) {
             follower.breakFollowing();
+            if (driveMode == DriveMode.MANUAL) {
+                follower.startTeleopDrive();
+            }
             pathAlreadyFollowed = false;
         }
 
@@ -217,13 +233,13 @@ public class DecodeTeleOp extends LinearOpMode {
 
                 if (!follower.isBusy() && !pathAlreadyFollowed) {
                     if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
-                        controlPose = new Pose(42, 62, 150);
-                        connectorPose = new Pose(22, 62, 150);
-                        endPose = new Pose(12, 62, 150);
-                    } else {
                         controlPose = new Pose(102, 62, 150);
                         connectorPose = new Pose(122, 62, 150);
                         endPose = new Pose(132, 62, 150);
+                    } else {
+                        controlPose = new Pose(42, 62, 150);
+                        connectorPose = new Pose(22, 62, 150);
+                        endPose = new Pose(12, 62, 150);
                     }
 
                     PathChain openGate = follower.pathBuilder()
@@ -284,19 +300,17 @@ public class DecodeTeleOp extends LinearOpMode {
             default:    speedMultiplier = 0.20; break;
         }
 
-        double forwardRaw = -gamepad1.left_stick_y * speedMultiplier;
-        double strafeLeftRaw = -gamepad1.left_stick_x * speedMultiplier;
+        double forwardRaw = gamepad1.left_stick_y * speedMultiplier;
+        double strafeLeftRaw = gamepad1.left_stick_x * speedMultiplier;
         double turnRaw = -gamepad1.right_stick_x * speedMultiplier;
 
         drivetrainReady = false;
         if (autoAimEnabled) {
             if (Math.abs(odometryTurnError) < 2.5) {
-                turnRaw = 0;
                 drivetrainReady = true;
-            } else {
-                turnRaw = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
-                turnRaw = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turnRaw));
             }
+            turnRaw = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+            turnRaw = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turnRaw));
         }
 
         if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
@@ -331,7 +345,7 @@ public class DecodeTeleOp extends LinearOpMode {
         else if (gamepad2.b)                   shooterMode = ShooterMode.CLOSE;
         else if (gamepad2.x)                   shooterMode = ShooterMode.MID;
         else if (gamepad2.y)                   shooterMode = ShooterMode.FAR;
-        else if (gamepad2.right_trigger > 0.5) shooterMode = ShooterMode.AUTO;
+        else if (gamepad2.right_trigger > 0.1) shooterMode = ShooterMode.AUTO;
         else                                   shooterMode = ShooterMode.ZERO;
 
         // 2. Find necessary velocity
@@ -364,26 +378,15 @@ public class DecodeTeleOp extends LinearOpMode {
         leftShooter.setVelocity(scaledVelocity);
         rightShooter.setVelocity(scaledVelocity);
 
-        shooterReady = Math.abs(leftShooter.getVelocity() - scaledVelocity) <= 0.03 * scaledVelocity &&
-                Math.abs(rightShooter.getVelocity() - scaledVelocity) <= 0.03 * scaledVelocity;
+        shooterReady = Math.abs(leftShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity &&
+                Math.abs(rightShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity;
     }
 
     private void initHardware() {
-        leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
-        leftFrontDrive = hardwareMap.get(DcMotorEx.class, "LF");
-        rightBackDrive = hardwareMap.get(DcMotorEx.class, "RB");
-        rightFrontDrive = hardwareMap.get(DcMotorEx.class, "RF");
-
         leftShooter = hardwareMap.get(DcMotorEx.class, "LS");
         rightShooter = hardwareMap.get(DcMotorEx.class, "RS");
         intakeMotor = hardwareMap.get(DcMotorEx.class, "IN");
         transferMotor = hardwareMap.get(DcMotorEx.class, "TR");
-
-        DcMotor[] drives = {leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive};
-        for (DcMotor motor : drives) {
-            motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        }
 
         DcMotorEx[] loaders = {intakeMotor, transferMotor};
         for (DcMotorEx motor : loaders) {
@@ -394,14 +397,9 @@ public class DecodeTeleOp extends LinearOpMode {
         PIDFCoefficients coeffs = new PIDFCoefficients(90.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
         }
-
-        leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
 
         leftShooter.setDirection(DcMotor.Direction.REVERSE);
         rightShooter.setDirection(DcMotor.Direction.FORWARD);
@@ -423,26 +421,41 @@ public class DecodeTeleOp extends LinearOpMode {
 
     private void updateTelemetry() {
         telemetry.addLine("FIELD POSITION");
-        telemetry.addData("Pose", "X: %.1f, Y: %.1f, H: %.1f°",
+        telemetry.addData("Robot Pose", "X: %.1f, Y: %.1f, H: %.1f°",
                 currentPose.getX(), currentPose.getY(), Math.toDegrees(currentPose.getHeading()));
         telemetry.addData("Alliance", DataPasser.currentAlliance);
-        telemetry.addData("Distance to Goal", "%.2f in", horizontalDistance);
 
-        telemetry.addLine("SYSTEM STATUS");
-        telemetry.addData("Limelight Lock", (horizontalDistance != -1) ? "LOCKED" : "SEARCHING");
-        telemetry.addData("Relocalized", relocalizedThisCycle ? "YES" : "NO");
-        telemetry.addData("Auto-Aim Active", autoAimEnabled);
+        telemetry.addLine("VISION DEBUG");
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            telemetry.addData("Limelight: TARGET FOUND", "(tx: %.1f, ty: %.1f)", result.getTx(), result.getTy());
+        } else {
+            telemetry.addLine("Limelight: SEARCHING/NO TARGET");
+        }
+        telemetry.addData("Target Dist", "%.2f in", horizontalDistance);
+        if (shooterMode == ShooterMode.AUTO) {
+            telemetry.addData("Relocalized", relocalizedThisCycle ? "SUCCESS" : "WAITING");
+        }
+
+        telemetry.addLine("AIMING & PID");
+        telemetry.addData("Auto-Aim", autoAimEnabled ? "ACTIVE" : "OFF");
+        telemetry.addData("Turn Error", "%.2f°", odometryTurnError);
+        // This helps you see how much your KP/KF is moving the robot
+        double currentTurnPower = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+        telemetry.addData("PID Output", "%.3f", Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, currentTurnPower)));
 
         telemetry.addLine("MECHANISMS");
-        telemetry.addData("Mode", shooterMode);
-        telemetry.addData("Ready to Fire", (drivetrainReady && shooterReady) ? "READY" : "WAITING");
-        telemetry.addData("Target RPM", targetShooterVelocity);
-        telemetry.addData("Actual L/R RPM", "%.0f / %.0f",
-                leftShooter.getVelocity() * 15/7, rightShooter.getVelocity() * 15/7);
+        telemetry.addData("Drivetrain", "Mode: %s (Speed: %s)", driveMode, driveSpeed);
+        telemetry.addData("Shooter Mode", shooterMode);
+        telemetry.addData("Status", "Drive: %s | Shoot: %s",
+                drivetrainReady ? "READY" : "WAITING",
+                shooterReady ? "READY" : "WAITING");
+        telemetry.addData("Target/Actual RPM", "%.0f / %.0f",
+                targetShooterVelocity, leftShooter.getVelocity() * 15.0 / 7.0);
 
-        String modeName = driveSpeed.toString();
-        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 40 : 20);
-        telemetry.addData("Drive", "%s (%.0f%%)", modeName, powerPercent);
+        telemetry.addLine("PEDRO PATHING");
+        telemetry.addData("Follower Busy", follower.isBusy());
+        telemetry.addData("Path Completed", pathAlreadyFollowed);
 
         telemetry.update();
     }
