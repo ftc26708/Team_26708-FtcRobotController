@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 // Imports
 import com.pedropathing.follower.Follower;
-import com.pedropathing.geometry.BezierCurve;
 import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
@@ -26,18 +25,18 @@ public class DecodeTeleOp extends LinearOpMode {
 
     // Constants
     private final double METERS_TO_INCHES = 39.3701;
-    final double MOUNT_HEIGHT = 0.26490; // Meters, exact
-    final double TARGET_HEIGHT = 0.74930; // Meters, exact
-    final double MOUNT_ANGLE = Math.toDegrees(Math.asin(0.25));
+    final double MOUNT_HEIGHT = 0.26490; // Meters
+    final double TARGET_HEIGHT = 0.74930; // Meters
+    final double MOUNT_ANGLE = 13.42; // Degrees
     private final double LIMELIGHT_X_OFFSET = 0.154 * METERS_TO_INCHES; // forward, to be measured and changed
     private final double LIMELIGHT_Y_OFFSET = 0.004 * METERS_TO_INCHES;  // left
-    private final Pose BLUE_GOAL_POSE_RELOC = new Pose(6, 138, 0);
-    private final Pose RED_GOAL_POSE_RELOC = new Pose(138, 138, 0);
     private final Pose BLUE_GOAL_POSE_AIM = new Pose(6, 138, 0);
     private final Pose RED_GOAL_POSE_AIM = new Pose(138, 138, 0);
+    private final Pose BLUE_GOAL_POSE_RELOC = new Pose(72 - 55.6425, 72 + 58.3727, 0);
+    private final Pose RED_GOAL_POSE_RELOC = new Pose(72 + 55.6425, 72 + 58.3727, 0);
     private final double KP = 0.020;
     private final double KF = 0.015;
-    private final double MAX_TURN_OUTPUT = 0.6;
+    private final double MAX_TURN_OUTPUT = 0.75;
 
     // Variables
     private double horizontalDistance = -1;
@@ -48,6 +47,7 @@ public class DecodeTeleOp extends LinearOpMode {
     private Pose currentPose = DataPasser.endAutoPose;
     private boolean drivetrainReady = false;
     private boolean shooterReady = false;
+    double averageVelocity;
     private double aimedShooterSpeed = 0;
     private boolean autoAimedLastFrame = false;
     private boolean relocalizedThisCycle = false;
@@ -55,6 +55,8 @@ public class DecodeTeleOp extends LinearOpMode {
     private boolean lastDpadLeft = false;
     private boolean lastDpadRight = false;
     private boolean pathAlreadyFollowed = false;
+    private double previousLoopMillis;
+    private double lastTargetVelocity = 0;
 
     private enum DriveSpeed {
         SLOW,
@@ -73,8 +75,7 @@ public class DecodeTeleOp extends LinearOpMode {
     ShooterMode shooterMode = ShooterMode.AUTO;
     private enum DriveMode {
         MANUAL,
-        OPEN_GATE,
-        INTAKE_GATE,
+        SHOOT,
         PARK
     }
     DriveMode driveMode = DriveMode.MANUAL;
@@ -90,15 +91,11 @@ public class DecodeTeleOp extends LinearOpMode {
         matchTimer.reset();
 
         while (opModeIsActive()) {
-            if (matchTimer.seconds() > 120) {
-                stop();
-            } else {
-                localization();
-                drivetrain();
-                intakeAndTransfer();
-                shooter();
-                updateTelemetry();
-            }
+            localization();
+            drivetrain();
+            intakeAndTransfer();
+            shooter();
+            updateTelemetry();
         }
     }
 
@@ -107,7 +104,6 @@ public class DecodeTeleOp extends LinearOpMode {
         currentPose = follower.getPose();
 
         // Nudges the heading by 0.5 degrees per distinct press
-        // D-pad Left increases angle (Counter-Clockwise), Right decreases (Clockwise)
         if (gamepad2.dpad_left && !lastDpadLeft) {
             follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() + Math.toRadians(0.5)));
         }
@@ -188,7 +184,7 @@ public class DecodeTeleOp extends LinearOpMode {
             driveMode = DriveMode.PARK;
         }
         if (gamepad1.y) {
-            driveMode = DriveMode.OPEN_GATE;
+            driveMode = DriveMode.SHOOT;
         }
         if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
             driveMode = DriveMode.MANUAL;
@@ -211,14 +207,14 @@ public class DecodeTeleOp extends LinearOpMode {
                 Pose endPose;
                 if (!follower.isBusy() && !pathAlreadyFollowed) {
                     if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
-                        endPose = new Pose(39, 33, 90);
+                        endPose = new Pose(39, 33, Math.toRadians(90));
                     } else {
-                        endPose = new Pose(105, 33, 90);
+                        endPose = new Pose(105, 33, Math.toRadians(90));
                     }
 
                     PathChain parkPath = follower.pathBuilder()
                             .addPath(new BezierLine(currentPose, endPose))
-                            .setLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.5)
                             .build();
                     follower.followPath(parkPath, true);
                     pathAlreadyFollowed = true;
@@ -226,59 +222,23 @@ public class DecodeTeleOp extends LinearOpMode {
                 break;
             }
 
-            case OPEN_GATE: {
-                Pose controlPose;
-                Pose connectorPose;
+            case SHOOT: {
                 Pose endPose;
-
                 if (!follower.isBusy() && !pathAlreadyFollowed) {
                     if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
-                        controlPose = new Pose(102, 62, 150);
-                        connectorPose = new Pose(122, 62, 150);
-                        endPose = new Pose(132, 62, 150);
+                        endPose = new Pose(48, 96, Math.toRadians(135));
                     } else {
-                        controlPose = new Pose(42, 62, 150);
-                        connectorPose = new Pose(22, 62, 150);
-                        endPose = new Pose(12, 62, 150);
+                        endPose = new Pose(96, 96, Math.toRadians(45));
                     }
 
-                    PathChain openGate = follower.pathBuilder()
-                            .addPath(new BezierCurve(currentPose, controlPose, connectorPose))
-                            .addPath(new BezierLine(connectorPose, endPose))
-                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                    PathChain parkPath = follower.pathBuilder()
+                            .addPath(new BezierLine(currentPose, endPose))
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.5)
                             .build();
-
-                    follower.followPath(openGate, true);
+                    follower.followPath(parkPath, true);
                     pathAlreadyFollowed = true;
-                }
-
-                if (!follower.isBusy() && pathAlreadyFollowed) {
-                    driveMode = DriveMode.INTAKE_GATE;
                 }
                 break;
-            }
-
-            case INTAKE_GATE: {
-                Pose controlPose;
-                Pose endPose;
-
-                if (!follower.isBusy() && !pathAlreadyFollowed) {
-                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
-                        controlPose = new Pose(12, 54, 90);
-                        endPose = new Pose(9, 51, 90);
-                    } else {
-                        controlPose = new Pose(132, 54, 90);
-                        endPose = new Pose(135, 51, 90);
-                    }
-
-                    PathChain intakeGate = follower.pathBuilder()
-                            .addPath(new BezierCurve(currentPose, controlPose, endPose))
-                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
-                            .build();
-
-                    follower.followPath(intakeGate, true);
-                    pathAlreadyFollowed = true;
-                }
             }
         }
     }
@@ -295,9 +255,9 @@ public class DecodeTeleOp extends LinearOpMode {
         double speedMultiplier;
         switch (driveSpeed) {
             case ULTRA: speedMultiplier = 1.0;  break;
-            case FAST:  speedMultiplier = 0.40; break;
+            case FAST:  speedMultiplier = 0.30; break;
             case SLOW:
-            default:    speedMultiplier = 0.20; break;
+            default:    speedMultiplier = 0.15; break;
         }
 
         double forwardRaw = gamepad1.left_stick_y * speedMultiplier;
@@ -321,23 +281,19 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void intakeAndTransfer() {
-        // AUTO-FIRE SEQUENCE
         if (drivetrainReady && shooterReady && autoAimEnabled) {
-            // Fire only when fully aimed
-            intakeMotor.setPower(0.5); // Spin intake forward
-            transferMotor.setPower(1); // Spin transfer to shoot
+            intakeMotor.setPower(1);
+            transferMotor.setPower(1);
         } else {
-            // This runs only if the auto-fire sequence isn't active
             intakeMotor.setPower(-gamepad2.left_stick_y);
             if (gamepad2.left_bumper) {
-                transferMotor.setPower(-1.0);
+                transferMotor.setPower(-1);
             } else {
-                transferMotor.setPower(0.6 * gamepad2.left_trigger - 0.2);
+                transferMotor.setPower(1.3 * gamepad2.left_trigger - 0.3);
             }
         }
         telemetry.addData("Transfer Power", transferMotor.getPower());
     }
-
 
     private void shooter() {
         // 1. Manual Mode Setting
@@ -350,19 +306,15 @@ public class DecodeTeleOp extends LinearOpMode {
 
         // 2. Find necessary velocity
         if (horizontalDistance > 0) {
-            // Tuning Constants
-            double A = 25.5 / Math.pow(METERS_TO_INCHES, 2);
-            double B = 143.0 / METERS_TO_INCHES;
-            double C = 980.0;
-
+            double A = 25 / Math.pow(METERS_TO_INCHES, 2);
+            double B = 100 / METERS_TO_INCHES;
+            double C = 960;
             aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C);
         }
 
         // 3. Determine final velocity based on mode
         switch (shooterMode) {
-            case AUTO:
-                targetShooterVelocity = (horizontalDistance > 0) ? aimedShooterSpeed : 0;
-                break;
+            case AUTO:  targetShooterVelocity = (horizontalDistance > 0) ? aimedShooterSpeed : 0; break;
             case CLOSE: targetShooterVelocity = 1200; break;
             case MID:   targetShooterVelocity = 1350; break;
             case FAR:   targetShooterVelocity = 1700; break;
@@ -370,16 +322,29 @@ public class DecodeTeleOp extends LinearOpMode {
             default:    targetShooterVelocity = 0;    break;
         }
 
-        // 4. Clamp Velocity and convert RPM to TPS
+        // 4. Reset latch if target changes significantly (50 RPM buffer)
+        if (Math.abs(targetShooterVelocity - lastTargetVelocity) > 50) {
+            shooterReady = false;
+        }
+        lastTargetVelocity = targetShooterVelocity;
+
+        // 5. Clamp and convert RPM to TPS
         targetShooterVelocity = Math.min(targetShooterVelocity, 2100);
         double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
 
-        // 5. Set velocities
+        // 6. Set velocities
         leftShooter.setVelocity(scaledVelocity);
         rightShooter.setVelocity(scaledVelocity);
 
-        shooterReady = Math.abs(leftShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity &&
-                Math.abs(rightShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity;
+        // 7. Latching Logic: Enable if within 75 RPM (35 TPS) of target
+        averageVelocity = (leftShooter.getVelocity() + rightShooter.getVelocity()) / 2.0;
+        double errorTPS = scaledVelocity - averageVelocity;
+
+        if (targetShooterVelocity <= 0) {
+            shooterReady = false;
+        } else if (errorTPS <= 35) { // 35 TPS = 75 RPM
+            shooterReady = true;
+        }
     }
 
     private void initHardware() {
@@ -397,7 +362,7 @@ public class DecodeTeleOp extends LinearOpMode {
         PIDFCoefficients coeffs = new PIDFCoefficients(90.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
             motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
         }
 
@@ -440,7 +405,6 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addLine("AIMING & PID");
         telemetry.addData("Auto-Aim", autoAimEnabled ? "ACTIVE" : "OFF");
         telemetry.addData("Turn Error", "%.2f°", odometryTurnError);
-        // This helps you see how much your KP/KF is moving the robot
         double currentTurnPower = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
         telemetry.addData("PID Output", "%.3f", Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, currentTurnPower)));
 
@@ -451,11 +415,15 @@ public class DecodeTeleOp extends LinearOpMode {
                 drivetrainReady ? "READY" : "WAITING",
                 shooterReady ? "READY" : "WAITING");
         telemetry.addData("Target/Actual RPM", "%.0f / %.0f",
-                targetShooterVelocity, leftShooter.getVelocity() * 15.0 / 7.0);
+                targetShooterVelocity, averageVelocity * 15.0 / 7.0);
 
         telemetry.addLine("PEDRO PATHING");
         telemetry.addData("Follower Busy", follower.isBusy());
         telemetry.addData("Path Completed", pathAlreadyFollowed);
+
+        telemetry.addLine("LOOP TIME");
+        telemetry.addData("Loop Time", "%.2f ms",previousLoopMillis - matchTimer.nanoseconds());
+        previousLoopMillis = matchTimer.nanoseconds();
 
         telemetry.update();
     }
