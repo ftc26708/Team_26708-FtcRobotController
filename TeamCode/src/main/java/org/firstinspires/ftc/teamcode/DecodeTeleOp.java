@@ -1,43 +1,61 @@
 package org.firstinspires.ftc.teamcode;
 
 // Imports
+import com.pedropathing.follower.Follower;
+import com.pedropathing.geometry.BezierCurve;
+import com.pedropathing.geometry.BezierLine;
+import com.pedropathing.geometry.Pose;
+import com.pedropathing.paths.PathChain;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.IMU;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
+import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@TeleOp(name = "Decode TeleOp LumoJUMP")
+@TeleOp(name = "DECODE TeleOp")
 public class DecodeTeleOp extends LinearOpMode {
     // Motors
-    private DcMotorEx leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive;
     private DcMotorEx leftShooter, rightShooter, intakeMotor, transferMotor;
 
     // Sensors
     private Limelight3A limelight;
-    private IMU imu;
 
     // Constants
-    final double MOUNT_HEIGHT = 0.26035;
-    final double TARGET_HEIGHT = 0.74930;
-    final double MOUNT_ANGLE = 16.0;
-    private final double KP = 0.075;
+    private final double METERS_TO_INCHES = 39.3701;
+    final double MOUNT_HEIGHT = 0.26490; // Meters, exact
+    final double TARGET_HEIGHT = 0.74930; // Meters, exact
+    final double MOUNT_ANGLE = Math.toDegrees(Math.asin(0.25));
+    private final double LIMELIGHT_X_OFFSET = 0.154 * METERS_TO_INCHES; // forward, to be measured and changed
+    private final double LIMELIGHT_Y_OFFSET = 0.004 * METERS_TO_INCHES;  // left
+    private final Pose BLUE_GOAL_POSE_RELOC = new Pose(6, 138, 0);
+    private final Pose RED_GOAL_POSE_RELOC = new Pose(138, 138, 0);
+    private final Pose BLUE_GOAL_POSE_AIM = new Pose(6, 138, 0);
+    private final Pose RED_GOAL_POSE_AIM = new Pose(138, 138, 0);
+    private final double KP = 0.020;
     private final double KF = 0.015;
-    private final double MAX_TURN_OUTPUT = 0.75;
+    private final double MAX_TURN_OUTPUT = 0.6;
 
     // Variables
     private double horizontalDistance = -1;
     private boolean autoAimEnabled = false;
     private double targetShooterVelocity = 0;
-    private com.qualcomm.robotcore.util.ElapsedTime matchTimer = new com.qualcomm.robotcore.util.ElapsedTime();
-    private boolean autoParking = false;
+    private final ElapsedTime matchTimer = new ElapsedTime();
     private Follower follower; // This handles the PedroPathing movement
-    private boolean isFullyAimed = false;
-    private double autoFireStartTime = -1;
+    private Pose currentPose = DataPasser.endAutoPose;
+    private boolean drivetrainReady = false;
+    private boolean shooterReady = false;
     private double aimedShooterSpeed = 0;
+    private boolean autoAimedLastFrame = false;
+    private boolean relocalizedThisCycle = false;
+    private double odometryTurnError = 0;
+    private boolean lastDpadLeft = false;
+    private boolean lastDpadRight = false;
+    private boolean pathAlreadyFollowed = false;
+
     private enum DriveSpeed {
         SLOW,
         FAST,
@@ -52,8 +70,14 @@ public class DecodeTeleOp extends LinearOpMode {
         MID,
         FAR
     }
-
     ShooterMode shooterMode = ShooterMode.AUTO;
+    private enum DriveMode {
+        MANUAL,
+        OPEN_GATE,
+        INTAKE_GATE,
+        PARK
+    }
+    DriveMode driveMode = DriveMode.MANUAL;
 
     @Override
     public void runOpMode() {
@@ -63,139 +87,246 @@ public class DecodeTeleOp extends LinearOpMode {
         telemetry.addData("Status", "Initialized, waiting");
         telemetry.update();
         waitForStart();
+        matchTimer.reset();
 
         while (opModeIsActive()) {
-            limelightLogic();
-            drive();
-            intakeAndTransfer();
-            shooterLogic();
-            updateTelemetry();
+            if (matchTimer.seconds() > 120) {
+                stop();
+            } else {
+                localization();
+                drivetrain();
+                intakeAndTransfer();
+                shooter();
+                updateTelemetry();
+            }
         }
     }
 
-    private void limelightLogic() {
-        // Updates Limelight values
-        LLResult result = limelight.getLatestResult();
+    private void localization() {
+        follower.update();
+        currentPose = follower.getPose();
 
-        // If result valid, calculates position of bot and distance to goal
-        if (result != null && result.isValid()) {
-            double ty = result.getTy();
-            double totalAngleRadians = Math.toRadians(MOUNT_ANGLE + ty);
-            horizontalDistance = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
-        } else {
-            horizontalDistance = -1; // Placeholder value as no valid result
+        // Nudges the heading by 0.5 degrees per distinct press
+        // D-pad Left increases angle (Counter-Clockwise), Right decreases (Clockwise)
+        if (gamepad2.dpad_left && !lastDpadLeft) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() + Math.toRadians(0.5)));
+        }
+        if (gamepad2.dpad_right && !lastDpadRight) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() - Math.toRadians(0.5)));
+        }
+        // Reset yaw
+        if (gamepad2.dpad_up) {
+            follower.setPose(new Pose(currentPose.getX(), currentPose.getY(), Math.toRadians(90)));
         }
 
-        // Redundancy in case of Autonomous program failing
-        if (gamepad1.dpad_left) {
-            DataPasser.currentAlliance = DataPasser.Alliance.BLUE;
-            imu.resetYaw();
-            limelight.pipelineSwitch(0);
+        lastDpadLeft = gamepad2.dpad_left;
+        lastDpadRight = gamepad2.dpad_right;
+
+        if (gamepad2.right_trigger > 0.1 && !autoAimedLastFrame) {
+            autoAimEnabled = true;
+            relocalizedThisCycle = false;
         }
-        if (gamepad1.dpad_right) {
-            DataPasser.currentAlliance = DataPasser.Alliance.RED;
-            imu.resetYaw();
-            limelight.pipelineSwitch(1);
+        autoAimedLastFrame = gamepad2.right_trigger > 0.1;
+
+        if (autoAimEnabled && !relocalizedThisCycle) {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                double ty = result.getTy();
+                double tx = result.getTx();
+                double totalAngleRadians = Math.toRadians(MOUNT_ANGLE + ty);
+                double visionDistanceMeters = (TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians);
+                double visionDistanceInches = visionDistanceMeters * METERS_TO_INCHES;
+
+                Pose aprilTag = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE_RELOC : BLUE_GOAL_POSE_RELOC;
+                double angleToGoalField = currentPose.getHeading() - Math.toRadians(tx);
+
+                // Calculate Camera Position
+                double camX = aprilTag.getX() - (Math.cos(angleToGoalField) * visionDistanceInches);
+                double camY = aprilTag.getY() - (Math.sin(angleToGoalField) * visionDistanceInches);
+
+                // Offset Camera to Robot Center
+                double cosH = Math.cos(currentPose.getHeading());
+                double sinH = Math.sin(currentPose.getHeading());
+                double newX = camX - (LIMELIGHT_X_OFFSET * cosH - LIMELIGHT_Y_OFFSET * sinH);
+                double newY = camY - (LIMELIGHT_X_OFFSET * sinH + LIMELIGHT_Y_OFFSET * cosH);
+
+                follower.setPose(new Pose(newX, newY, currentPose.getHeading()));
+                relocalizedThisCycle = true;
+            }
         }
 
-        // Disables chassis auto-aim if gamepad 1 touches sticks
-        if (Math.abs(gamepad1.left_stick_y) > 0 || Math.abs(gamepad1.left_stick_x) > 0 || Math.abs(gamepad1.right_stick_x) > 0) {
+        Pose target = (DataPasser.currentAlliance == DataPasser.Alliance.RED) ? RED_GOAL_POSE_AIM : BLUE_GOAL_POSE_AIM;
+        double dx = target.getX() - currentPose.getX();
+        double dy = target.getY() - currentPose.getY();
+        horizontalDistance = Math.hypot(dx, dy);
+
+        double targetAngle = Math.atan2(dy, dx);
+        double relativeAngle = targetAngle - currentPose.getHeading();
+        while (relativeAngle > Math.PI) relativeAngle -= 2 * Math.PI;
+        while (relativeAngle < -Math.PI) relativeAngle += 2 * Math.PI;
+        odometryTurnError = Math.toDegrees(relativeAngle);
+
+        if (gamepad2.dpad_down) {
+            if (gamepad1.dpad_left) {
+                DataPasser.currentAlliance = DataPasser.Alliance.BLUE;
+                limelight.pipelineSwitch(0);
+            }
+            if (gamepad1.dpad_right) {
+                DataPasser.currentAlliance = DataPasser.Alliance.RED;
+                limelight.pipelineSwitch(1);
+            }
+        }
+
+        if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
             autoAimEnabled = false;
         }
-
-        // Overrides above case
-        // Overrides above case
-        if (gamepad2.right_trigger > 0.5) { // Use > 0.5 for triggers
-            autoAimEnabled = true;
-        }
-
     }
 
-    private void drive() {
-        // 1. Determine Base Speed Mode
-        if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
-            driveSpeed = DriveSpeed.FAST;
-            if (gamepad1.a) {driveSpeed = DriveSpeed.ULTRA;
-            }
-        } else {
-            driveSpeed = DriveSpeed.SLOW;
+    private void drivetrain() {
+        DriveMode previousDriveMode = driveMode;
+        if (gamepad1.a) {
+            driveMode = DriveMode.PARK;
+        }
+        if (gamepad1.y) {
+            driveMode = DriveMode.OPEN_GATE;
+        }
+        if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
+            driveMode = DriveMode.MANUAL;
         }
 
-        // 2. Set Multipliers
+        if (previousDriveMode != driveMode) {
+            follower.breakFollowing();
+            if (driveMode == DriveMode.MANUAL) {
+                follower.startTeleopDrive();
+            }
+            pathAlreadyFollowed = false;
+        }
+
+        switch (driveMode) {
+            case MANUAL:
+                manualDrive();
+                break;
+
+            case PARK: {
+                Pose endPose;
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        endPose = new Pose(39, 33, 90);
+                    } else {
+                        endPose = new Pose(105, 33, 90);
+                    }
+
+                    PathChain parkPath = follower.pathBuilder()
+                            .addPath(new BezierLine(currentPose, endPose))
+                            .setLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+                    follower.followPath(parkPath, true);
+                    pathAlreadyFollowed = true;
+                }
+                break;
+            }
+
+            case OPEN_GATE: {
+                Pose controlPose;
+                Pose connectorPose;
+                Pose endPose;
+
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        controlPose = new Pose(102, 62, 150);
+                        connectorPose = new Pose(122, 62, 150);
+                        endPose = new Pose(132, 62, 150);
+                    } else {
+                        controlPose = new Pose(42, 62, 150);
+                        connectorPose = new Pose(22, 62, 150);
+                        endPose = new Pose(12, 62, 150);
+                    }
+
+                    PathChain openGate = follower.pathBuilder()
+                            .addPath(new BezierCurve(currentPose, controlPose, connectorPose))
+                            .addPath(new BezierLine(connectorPose, endPose))
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+
+                    follower.followPath(openGate, true);
+                    pathAlreadyFollowed = true;
+                }
+
+                if (!follower.isBusy() && pathAlreadyFollowed) {
+                    driveMode = DriveMode.INTAKE_GATE;
+                }
+                break;
+            }
+
+            case INTAKE_GATE: {
+                Pose controlPose;
+                Pose endPose;
+
+                if (!follower.isBusy() && !pathAlreadyFollowed) {
+                    if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+                        controlPose = new Pose(12, 54, 90);
+                        endPose = new Pose(9, 51, 90);
+                    } else {
+                        controlPose = new Pose(132, 54, 90);
+                        endPose = new Pose(135, 51, 90);
+                    }
+
+                    PathChain intakeGate = follower.pathBuilder()
+                            .addPath(new BezierCurve(currentPose, controlPose, endPose))
+                            .setGlobalLinearHeadingInterpolation(currentPose.getHeading(), endPose.getHeading(), 0.75)
+                            .build();
+
+                    follower.followPath(intakeGate, true);
+                    pathAlreadyFollowed = true;
+                }
+            }
+        }
+    }
+
+    private void manualDrive() {
+        if (gamepad1.left_stick_button || gamepad1.right_stick_button) {
+            driveSpeed = DriveSpeed.ULTRA;
+        } else if (gamepad1.left_bumper || gamepad1.right_bumper) {
+            driveSpeed = DriveSpeed.SLOW;
+        } else {
+            driveSpeed = DriveSpeed.FAST;
+        }
+
         double speedMultiplier;
         switch (driveSpeed) {
             case ULTRA: speedMultiplier = 1.0;  break;
-            case FAST:  speedMultiplier = 0.85; break;
+            case FAST:  speedMultiplier = 0.40; break;
             case SLOW:
-            default:    speedMultiplier = 0.45; break;
+            default:    speedMultiplier = 0.20; break;
         }
 
-        // 3. Get Joystick Inputs
-        double drive = -gamepad1.left_stick_y * speedMultiplier;
-        double strafe = gamepad1.left_stick_x * speedMultiplier;
-        double turn = gamepad1.right_stick_x * speedMultiplier;
+        double forwardRaw = gamepad1.left_stick_y * speedMultiplier;
+        double strafeLeftRaw = gamepad1.left_stick_x * speedMultiplier;
+        double turnRaw = -gamepad1.right_stick_x * speedMultiplier;
 
-        LLResult result = limelight.getLatestResult();
-
-        // 4. Handle Auto-Aiming (Rotation Hijack)
-        if (autoAimEnabled && result != null && result.isValid()) {
-            double tx = result.getTx(); // The horizontal offset from crosshair
-
-            // DEADBAND: If error is less than 1.0 degree, stop turning
-            if (Math.abs(tx) < 1.0) {
-                turn = 0;
-                // Start the fire timer if we haven't already
-                if (autoFireStartTime == -1) {
-                    isFullyAimed = true;
-                    autoFireStartTime = getRuntime();
-                }
-            } else {
-                // Calculation: Error * Proportional + Constant Friction Kick
-                // We use Math.signum(tx) to ensure KF always pushes TOWARDS the target
-                turn = (tx * KP) + (Math.signum(tx) * KF);
-
-                // Limit the turn speed so it doesn't whip around too fast
-                turn = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turn));
-
-                isFullyAimed = false;
-                autoFireStartTime = -1;
+        drivetrainReady = false;
+        if (autoAimEnabled) {
+            if (Math.abs(odometryTurnError) < 2.5) {
+                drivetrainReady = true;
             }
+            turnRaw = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+            turnRaw = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turnRaw));
         }
 
-        // 5. Mecanum Motor Calculations
-        double p1 = drive + strafe + turn; // LF
-        double p2 = drive - strafe + turn; // LB
-        double p3 = drive - strafe - turn; // RF
-        double p4 = drive + strafe - turn; // RB
-
-        // Normalize powers if any exceed 1.0
-        double max = Math.max(1.0, Math.max(Math.abs(p1), Math.max(Math.abs(p2), Math.max(Math.abs(p3), Math.abs(p4)))));
-
-        leftFrontDrive.setPower(p1 / max);
-        leftBackDrive.setPower(p2 / max);
-        rightFrontDrive.setPower(p3 / max);
-        rightBackDrive.setPower(p4 / max);
+        if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
+            follower.setTeleOpDrive(-forwardRaw, -strafeLeftRaw, turnRaw, false);
+        } else {
+            follower.setTeleOpDrive(forwardRaw, strafeLeftRaw, turnRaw, false);
+        }
     }
 
-
     private void intakeAndTransfer() {
-        // --- AUTO-FIRE SEQUENCE ---
-        if (isFullyAimed && autoFireStartTime != -1) {
-            double timeElapsed = getRuntime() - autoFireStartTime;
-
-            // Fire for 3 seconds after being fully aimed
-            if (timeElapsed < 3.0) {
-                intakeMotor.setPower(0.5);    // Spin intake forward
-                transferMotor.setPower(0.7); // Spin transfer to shoot
-            } else {
-                // After 3 seconds, stop the sequence and reset
-                isFullyAimed = false;
-                autoFireStartTime = -1;
-                // Optional: Automatically disable auto-aim so the driver has full control back
-                autoAimEnabled = false;
-            }
+        // AUTO-FIRE SEQUENCE
+        if (drivetrainReady && shooterReady && autoAimEnabled) {
+            // Fire only when fully aimed
+            intakeMotor.setPower(0.5); // Spin intake forward
+            transferMotor.setPower(1); // Spin transfer to shoot
         } else {
-            // --- MANUAL CONTROLS ---
             // This runs only if the auto-fire sequence isn't active
             intakeMotor.setPower(-gamepad2.left_stick_y);
             if (gamepad2.left_bumper) {
@@ -208,30 +339,23 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
 
-    private void shooterLogic() {
-        // 1. Manual Overrides (Driver can still force a mode)
-        if (gamepad2.a)  shooterMode = ShooterMode.ZERO;
-        if (gamepad2.b)  shooterMode = ShooterMode.CLOSE;
-        if (gamepad2.x)  shooterMode = ShooterMode.MID;
-        if (gamepad2.y)  shooterMode = ShooterMode.FAR;
-        if (gamepad2.right_stick_button) shooterMode = ShooterMode.BACK;
-        if (gamepad2.right_bumper) shooterMode = ShooterMode.AUTO;
+    private void shooter() {
+        // 1. Manual Mode Setting
+        if      (gamepad2.a)                   shooterMode = ShooterMode.BACK;
+        else if (gamepad2.b)                   shooterMode = ShooterMode.CLOSE;
+        else if (gamepad2.x)                   shooterMode = ShooterMode.MID;
+        else if (gamepad2.y)                   shooterMode = ShooterMode.FAR;
+        else if (gamepad2.right_trigger > 0.1) shooterMode = ShooterMode.AUTO;
+        else                                   shooterMode = ShooterMode.ZERO;
 
-        // 2. AUTOMATIC HIJACK: If Limelight sees a tag, force AUTO mode
+        // 2. Find necessary velocity
         if (horizontalDistance > 0) {
-            shooterMode = ShooterMode.AUTO;
-
             // Tuning Constants
-            double A = 25.0;
-            double B = 140.0;
-            double C = 960.0;
+            double A = 25.5 / Math.pow(METERS_TO_INCHES, 2);
+            double B = 143.0 / METERS_TO_INCHES;
+            double C = 980.0;
 
-            // --- ADDED OFFSET ---
-            // Add a flat 50-100 ticks/sec to "over-shoot" the target slightly.
-            // Or use a multiplier like 1.05 for 5% extra power.
-            double extraPower = 1.02;
-
-            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C) * extraPower;
+            aimedShooterSpeed = ((A * Math.pow(horizontalDistance, 2)) + (B * horizontalDistance) + C);
         }
 
         // 3. Determine final velocity based on mode
@@ -242,50 +366,27 @@ public class DecodeTeleOp extends LinearOpMode {
             case CLOSE: targetShooterVelocity = 1200; break;
             case MID:   targetShooterVelocity = 1350; break;
             case FAR:   targetShooterVelocity = 1700; break;
-            case BACK:  targetShooterVelocity = -500; break;
+            case BACK:  targetShooterVelocity = -600; break;
             default:    targetShooterVelocity = 0;    break;
         }
 
-        // 4. Clamp and Apply Gear Ratio
+        // 4. Clamp Velocity and convert RPM to TPS
         targetShooterVelocity = Math.min(targetShooterVelocity, 2100);
-
-        // This math is correct ONLY if motor has 15T and wheel has 7T
         double scaledVelocity = targetShooterVelocity * 7.0 / 15.0;
 
+        // 5. Set velocities
         leftShooter.setVelocity(scaledVelocity);
         rightShooter.setVelocity(scaledVelocity);
+
+        shooterReady = Math.abs(leftShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity &&
+                Math.abs(rightShooter.getVelocity() - scaledVelocity) <= 0.05 * scaledVelocity;
     }
 
-//    private void handleEndgameAutoPark() {
-//        if (autoParking) return;
-//        if (matchTimer.seconds() < 90) return;
-//
-//        if (gamepad1.x) {
-//            autoParking = true;
-//
-//            Pose parkPose = (alliance == Alliance.RED)
-//                    ? Pose.fromField(58, 12, Math.toRadians(180))
-//                    : Pose.fromField(58, -12, Math.toRadians(180));
-//
-//            follower.setTargetPose(parkPose);
-//        }
-//    }
     private void initHardware() {
-        leftBackDrive = hardwareMap.get(DcMotorEx.class, "LB");
-        leftFrontDrive = hardwareMap.get(DcMotorEx.class, "LF");
-        rightBackDrive = hardwareMap.get(DcMotorEx.class, "RB");
-        rightFrontDrive = hardwareMap.get(DcMotorEx.class, "RF");
-
         leftShooter = hardwareMap.get(DcMotorEx.class, "LS");
         rightShooter = hardwareMap.get(DcMotorEx.class, "RS");
         intakeMotor = hardwareMap.get(DcMotorEx.class, "IN");
         transferMotor = hardwareMap.get(DcMotorEx.class, "TR");
-
-        DcMotor[] drives = {leftBackDrive, leftFrontDrive, rightBackDrive, rightFrontDrive};
-        for (DcMotor motor : drives) {
-            motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        }
 
         DcMotorEx[] loaders = {intakeMotor, transferMotor};
         for (DcMotorEx motor : loaders) {
@@ -293,24 +394,22 @@ public class DecodeTeleOp extends LinearOpMode {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         }
 
-        PIDFCoefficients coeffs = new PIDFCoefficients(45.0, 0.02, 2.5, 13.2);
+        PIDFCoefficients coeffs = new PIDFCoefficients(90.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
-            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
             motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
         }
-
-        leftBackDrive.setDirection(DcMotor.Direction.REVERSE);
-        leftFrontDrive.setDirection(DcMotor.Direction.REVERSE);
-        rightBackDrive.setDirection(DcMotor.Direction.FORWARD);
-        rightFrontDrive.setDirection(DcMotor.Direction.FORWARD);
 
         leftShooter.setDirection(DcMotor.Direction.REVERSE);
         rightShooter.setDirection(DcMotor.Direction.FORWARD);
         transferMotor.setDirection(DcMotor.Direction.FORWARD);
         intakeMotor.setDirection(DcMotor.Direction.FORWARD);
 
-        imu = hardwareMap.get(IMU.class, "imu");
+        follower = Constants.createFollower(hardwareMap);
+        follower.setStartingPose(DataPasser.endAutoPose);
+        follower.startTeleopDrive();
+
         limelight = hardwareMap.get(Limelight3A.class, "LM");
         if (DataPasser.currentAlliance == DataPasser.Alliance.RED) {
             limelight.pipelineSwitch(1);
@@ -321,24 +420,43 @@ public class DecodeTeleOp extends LinearOpMode {
     }
 
     private void updateTelemetry() {
-        telemetry.addData("Target Found", (horizontalDistance == -1) ? "NO" : "YES");
-        telemetry.addData("Distance to Target", "%.2f", horizontalDistance);
-        telemetry.addData("Shooter Velocity", targetShooterVelocity);
-        telemetry.addData("Actual Left Velocity", leftShooter.getVelocity() * 15/7);
-        telemetry.addData("Actual Right Velocity", rightShooter.getVelocity() * 15/7);
-        telemetry.addData("Auto-Aim Active", autoAimEnabled);
-        telemetry.addData("SHOOTER MODE:", shooterMode);
-        telemetry.addData("Dist", aimedShooterSpeed);
-        telemetry.addData("Shooter Speed", targetShooterVelocity);
+        telemetry.addLine("FIELD POSITION");
+        telemetry.addData("Robot Pose", "X: %.1f, Y: %.1f, H: %.1f°",
+                currentPose.getX(), currentPose.getY(), Math.toDegrees(currentPose.getHeading()));
+        telemetry.addData("Alliance", DataPasser.currentAlliance);
 
+        telemetry.addLine("VISION DEBUG");
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            telemetry.addData("Limelight: TARGET FOUND", "(tx: %.1f, ty: %.1f)", result.getTx(), result.getTy());
+        } else {
+            telemetry.addLine("Limelight: SEARCHING/NO TARGET");
+        }
+        telemetry.addData("Target Dist", "%.2f in", horizontalDistance);
+        if (shooterMode == ShooterMode.AUTO) {
+            telemetry.addData("Relocalized", relocalizedThisCycle ? "SUCCESS" : "WAITING");
+        }
 
-        // Updated Drive Mode Telemetry
-        String modeName = driveSpeed.toString();
-        double powerPercent = (driveSpeed == DriveSpeed.ULTRA) ? 100 : (driveSpeed == DriveSpeed.FAST ? 75 : 45);
+        telemetry.addLine("AIMING & PID");
+        telemetry.addData("Auto-Aim", autoAimEnabled ? "ACTIVE" : "OFF");
+        telemetry.addData("Turn Error", "%.2f°", odometryTurnError);
+        // This helps you see how much your KP/KF is moving the robot
+        double currentTurnPower = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+        telemetry.addData("PID Output", "%.3f", Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, currentTurnPower)));
 
-        telemetry.addData("Drive Mode", "%s (%.0f%%)", modeName, powerPercent);
+        telemetry.addLine("MECHANISMS");
+        telemetry.addData("Drivetrain", "Mode: %s (Speed: %s)", driveMode, driveSpeed);
+        telemetry.addData("Shooter Mode", shooterMode);
+        telemetry.addData("Status", "Drive: %s | Shoot: %s",
+                drivetrainReady ? "READY" : "WAITING",
+                shooterReady ? "READY" : "WAITING");
+        telemetry.addData("Target/Actual RPM", "%.0f / %.0f",
+                targetShooterVelocity, leftShooter.getVelocity() * 15.0 / 7.0);
+
+        telemetry.addLine("PEDRO PATHING");
+        telemetry.addData("Follower Busy", follower.isBusy());
+        telemetry.addData("Path Completed", pathAlreadyFollowed);
+
         telemetry.update();
     }
-
-
 }

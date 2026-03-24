@@ -77,6 +77,10 @@ public class DecodeAutonomous extends OpMode {
 
     public void init() {}
 
+    public void stop() {
+        DataPasser.endAutoPose = follower.getPose();
+    }
+
     @Override
     public void init_loop() {
         switch (initState) {
@@ -90,7 +94,7 @@ public class DecodeAutonomous extends OpMode {
 
                 shooters = new DcMotorEx[]{leftShooter, rightShooter};
 
-                PIDFCoefficients coeffs = new PIDFCoefficients(45.0, 0.02, 2.5, 13.2);
+                PIDFCoefficients coeffs = new PIDFCoefficients(90.0, 0.02, 2.5, 13.2);
                 for (DcMotorEx motor : shooters) {
                     motor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coeffs);
                     motor.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
