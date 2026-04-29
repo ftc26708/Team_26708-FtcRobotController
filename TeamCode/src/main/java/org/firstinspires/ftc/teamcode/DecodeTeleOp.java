@@ -1,4 +1,3 @@
-//Updated and new
 package org.firstinspires.ftc.teamcode;
 
 // Imports
