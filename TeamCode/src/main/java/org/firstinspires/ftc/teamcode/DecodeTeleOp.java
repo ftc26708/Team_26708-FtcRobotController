@@ -1,3 +1,4 @@
+//new and updated from team branch on 5:24 4/29/2026
 package org.firstinspires.ftc.teamcode;
 
 // Imports
@@ -34,8 +35,10 @@ public class DecodeTeleOp extends LinearOpMode {
     private final Pose RED_GOAL_POSE_AIM = new Pose(138, 138, 0);
     private final Pose BLUE_GOAL_POSE_RELOC = new Pose(72 - 55.6425, 72 + 58.3727, 0);
     private final Pose RED_GOAL_POSE_RELOC = new Pose(72 + 55.6425, 72 + 58.3727, 0);
-    private final double KP = 0.020;
+    private final double KP = 0.025; // Slightly higher P
+    private final double KD = 0.002; // New D term to dampen movement
     private final double KF = 0.015;
+    private double lastTurnError = 0;
     private final double MAX_TURN_OUTPUT = 0.75;
 
     // Variables
@@ -266,10 +269,18 @@ public class DecodeTeleOp extends LinearOpMode {
 
         drivetrainReady = false;
         if (autoAimEnabled) {
-            if (Math.abs(odometryTurnError) < 2.5) {
+            // 1. Tighten the accuracy threshold for 'Ready' status
+            if (Math.abs(odometryTurnError) < 1.0) {
                 drivetrainReady = true;
             }
-            turnRaw = (odometryTurnError * KP) + (Math.signum(odometryTurnError) * KF);
+
+            //Added the D (Derivative) term to stop oscillation
+            double errorChange = odometryTurnError - lastTurnError;
+            turnRaw = (odometryTurnError * KP) + (errorChange * KD) + (Math.signum(odometryTurnError) * KF);
+
+            //Updated last error for the next loop
+            lastTurnError = odometryTurnError;
+
             turnRaw = Math.max(-MAX_TURN_OUTPUT, Math.min(MAX_TURN_OUTPUT, turnRaw));
         }
 
@@ -342,7 +353,7 @@ public class DecodeTeleOp extends LinearOpMode {
 
         if (targetShooterVelocity <= 0) {
             shooterReady = false;
-        } else if (errorTPS <= 35) { // 35 TPS = 75 RPM
+        } else if (errorTPS <= 18) { // 35 TPS = 75 RPM
             shooterReady = true;
         }
     }
