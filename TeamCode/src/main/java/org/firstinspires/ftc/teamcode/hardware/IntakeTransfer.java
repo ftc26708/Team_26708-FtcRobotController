@@ -9,6 +9,7 @@ public class IntakeTransfer {
     public IntakeTransfer(DcMotorEx intakeMotor, DcMotorEx transferMotor) {
         this.intakeMotor = intakeMotor;
         this.transferMotor = transferMotor;
+        intakeMotor.setDirection(DcMotorEx.Direction.REVERSE);
     }
     public void setIntakePower(double power) {
         intakeMotor.setPower(power);
