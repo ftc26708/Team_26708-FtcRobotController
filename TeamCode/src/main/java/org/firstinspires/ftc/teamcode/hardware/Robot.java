@@ -87,6 +87,9 @@ public class Robot {
     public void setStartingPose(Pose startingPose) {
         localization.setStartingPose(startingPose);
     }
+    public void startTeleopDrive() {
+        drivetrain.startTeleopDrive();
+    }
     public void setPose(Pose pose) {
         localization.setOdometryPose(pose);
     }

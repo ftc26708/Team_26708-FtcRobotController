@@ -15,6 +15,9 @@ public class Drivetrain {
         this.follower = follower;
     }
 
+    public void startTeleopDrive() {
+        follower.startTeleopDrive();
+    }
     public void update() {
         follower.update();
     }

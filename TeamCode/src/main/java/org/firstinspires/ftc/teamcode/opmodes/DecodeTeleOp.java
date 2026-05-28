@@ -22,6 +22,7 @@ public class DecodeTeleOp extends OpMode {
     @Override
     public void init() {
         robot = new Robot(hardwareMap);
+        robot.startTeleopDrive();
 
         // Initialize from Auto
         robot.setAlliance(Robot.DataPasser.currentAlliance);
@@ -29,11 +30,12 @@ public class DecodeTeleOp extends OpMode {
     }
 
     public void loop() {
+            robot.updateDrivetrain();
+
             localizationLogic();
             drivetrainLogic();
             mechanismLogic();
 
-            robot.updateDrivetrain();
             robot.telemetryOutput(telemetry);
             telemetry.update();
     }
