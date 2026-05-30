@@ -41,6 +41,13 @@ public class DecodeTeleOp extends OpMode {
     }
 
     private void localizationLogic() {
+        if (gamepad1.dpad_left) {
+            robot.setAlliance(Robot.DataPasser.Alliance.BLUE);
+        }
+        if (gamepad1.dpad_right) {
+            robot.setAlliance(Robot.DataPasser.Alliance.RED);
+        }
+
         Pose currentPose = robot.getPose();
 
         if (gamepad2.dpad_left && !lastDpadLeft) {

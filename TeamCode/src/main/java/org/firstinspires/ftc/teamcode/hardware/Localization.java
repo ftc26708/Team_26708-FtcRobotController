@@ -27,6 +27,7 @@ public class Localization {
     public Localization(Follower follower, Limelight3A limelight) {
         this.follower = follower;
         this.limelight = limelight;
+        limelight.start();
     }
 
     public void setPipeline(int pipeline) {
@@ -42,7 +43,6 @@ public class Localization {
     public Pose getOdometryPose() {
         return follower.getPose();
     }
-    // In Localization.java
     public Optional<Pose> getCameraPose(Pose targetAprilTag) {
         LLResult result = limelight.getLatestResult();
 
@@ -54,11 +54,10 @@ public class Localization {
         double ty = result.getTy();
         double tx = result.getTx();
 
-        // Math remains the same, just using the targetAprilTag passed in
         double totalAngleRadians = Math.toRadians(MOUNT_ANGLE + ty);
         double visionDistanceInches = ((TARGET_HEIGHT - MOUNT_HEIGHT) / Math.tan(totalAngleRadians)) * METERS_TO_INCHES;
 
-        Pose currentPose = follower.getPose(); // Use the follower reference you already have
+        Pose currentPose = follower.getPose();
         double angleToGoalField = currentPose.getHeading() - Math.toRadians(tx);
 
         double camX = targetAprilTag.getX() - (Math.cos(angleToGoalField) * visionDistanceInches);
@@ -105,7 +104,7 @@ public class Localization {
         Vector v = follower.getVelocity();
         boolean locked = limelight.getLatestResult().isValid();
         return String.format(Locale.US,
-                "LOC: (%.1f, %.1f, %.1f°)s" +
+                "LOC: (%.1f, %.1f, %.1f°)" +
                         "\nVEL: %.1f in/s, %1f degrees" +
                         "\nCAM: %s | Pipe: %d",
                 p.getX(), p.getY(), Math.toDegrees(p.getHeading()),
