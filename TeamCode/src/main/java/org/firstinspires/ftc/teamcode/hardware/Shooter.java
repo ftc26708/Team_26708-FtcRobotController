@@ -38,7 +38,7 @@ public class Shooter {
     }
 
     public double getVelocityError() {
-        return targetVelocity - getActualVelocity();
+        return getActualVelocity() - targetVelocity;
     }
 
     public double getNeededVelocity(double distance) {

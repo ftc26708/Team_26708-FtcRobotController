@@ -99,9 +99,21 @@ public class Localization {
         return Math.toDegrees(relativeAngle);
     }
 
+    public Pose getPose() {
+        return follower.getPose();
+    }
+
+    public Vector getVelocity() {
+        return follower.getVelocity();
+    }
+
+    public double getAngularVelocity() {
+        return Math.toDegrees(follower.getAngularVelocity());
+    }
+
     public String getTelemetry() {
-        Pose p = follower.getPose();
-        Vector v = follower.getVelocity();
+        Pose p = getPose();
+        Vector v = getVelocity();
         boolean locked = limelight.getLatestResult().isValid();
         return String.format(Locale.US,
                 "LOC: (%.1f, %.1f, %.1f°)" +

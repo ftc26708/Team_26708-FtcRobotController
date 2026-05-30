@@ -177,6 +177,18 @@ public class Robot {
         shooter.setTargetVelocity(shoot);
     }
 
+    public boolean isReadyToShoot() {
+        if(
+                Math.abs(shooter.getVelocityError()) >= 50 ||
+                Math.abs(localization.getAngleToPose(goalPose)) >= 2 ||
+                Math.abs(localization.getAngularVelocity()) >= 30
+        ) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+
     // TELEMETRY
     public void telemetryOutput(Telemetry telemetry) {
         long currentTime = System.nanoTime();
