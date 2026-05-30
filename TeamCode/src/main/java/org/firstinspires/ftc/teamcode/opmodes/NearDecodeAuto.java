@@ -58,6 +58,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         // We wrap every blue-side pose in alliancePose() immediately.
         // This mirrors them for RED if necessary before they are even stored.
         startPose = alliancePose(new Pose(15.78, 113.52, Math.toRadians(180)));
+        robot.setStartingPose(startPose);
+
         shootPose = alliancePose(new Pose(60, 84, Math.toRadians(135)));
 
         pickupMiddleSpikeControlPose = alliancePose(new Pose(60, 60));
@@ -83,7 +85,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
 
     @Override
     protected void buildPaths() {
-        // Now buildPaths is much cleaner. No more alliancePose() calls here.
         scorePreload = robot.pathBuilder()
                 .addPath(new BezierLine(startPose, shootPose))
                 .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())

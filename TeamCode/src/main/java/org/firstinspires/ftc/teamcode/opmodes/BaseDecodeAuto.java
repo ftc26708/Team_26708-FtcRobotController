@@ -17,6 +17,7 @@ public abstract class BaseDecodeAuto extends OpMode {
         switch (initState) {
             case HARDWARE:
                 robot = new Robot(hardwareMap);
+                Robot.DataPasser.currentAlliance = Robot.DataPasser.Alliance.UNKNOWN;
                 initState = InitState.SELECT_ALLIANCE;
                 break;
             case SELECT_ALLIANCE:

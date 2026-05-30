@@ -45,6 +45,8 @@ public class FarDecodeAuto extends BaseDecodeAuto {
     protected void computePoses() {
         // Blue alliance base coordinates mirrored via alliancePose()
         startPose = alliancePose(new Pose(60.000, 7.950, Math.toRadians(180)));
+        robot.setStartingPose(startPose);
+
         shootPose = alliancePose(new Pose(60.000, 21.000, Math.toRadians(116)));
 
         loadingZoneStartPose = alliancePose(new Pose(11.000, 21.000, Math.toRadians(20)));
