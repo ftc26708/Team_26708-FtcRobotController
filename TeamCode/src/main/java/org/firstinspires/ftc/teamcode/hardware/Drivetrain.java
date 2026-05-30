@@ -22,7 +22,7 @@ public class Drivetrain {
         follower.update();
     }
     public void drive(double x, double y, double turn) {
-        follower.setTeleOpDrive(x, y, turn, fieldCentric);
+        follower.setTeleOpDrive(x, y, turn, !fieldCentric);
         this.x = x;
         this.y = y;
         this.turn = turn;
