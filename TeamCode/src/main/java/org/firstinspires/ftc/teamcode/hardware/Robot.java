@@ -27,7 +27,7 @@ public class Robot {
             UNKNOWN
         }
         public static Alliance currentAlliance = Alliance.UNKNOWN;
-        public static Pose endAutoPose = new Pose(72, 72, 90);
+        public static Pose endAutoPose = new Pose(72, 72, Math.toRadians(90));
         private static long actionStartTime = 0;
         public static void resetTimer() {
             actionStartTime = System.nanoTime();
