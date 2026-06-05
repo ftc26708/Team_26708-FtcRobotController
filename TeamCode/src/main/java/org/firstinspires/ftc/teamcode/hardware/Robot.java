@@ -6,12 +6,14 @@ import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathBuilder;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+import java.util.List;
 import java.util.Optional;
 
 public class Robot {
@@ -44,6 +46,7 @@ public class Robot {
     private final double MAX_TURN = 0.6;
     private Pose goalPose;
     private Pose relocalizationPose;
+    List<LynxModule> allHubs;
     private long lastLoopTime = 0;
     private double currentLoopTimeMs = 0;
     public Robot(HardwareMap hardwareMap) {
@@ -61,6 +64,17 @@ public class Robot {
                 follower,
                 hardwareMap.get(Limelight3A.class, "LM")
         );
+
+        allHubs = hardwareMap.getAll(LynxModule.class);
+        for (LynxModule hub : allHubs) {
+            hub.setBulkCachingMode(LynxModule.BulkCachingMode.MANUAL);
+        }
+    }
+
+    public void clearCache() {
+        for (LynxModule hub : allHubs) {
+            hub.clearBulkCache();
+        }
     }
 
     // LOCALIZATION

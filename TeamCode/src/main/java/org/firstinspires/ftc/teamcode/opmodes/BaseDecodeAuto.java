@@ -45,6 +45,8 @@ public abstract class BaseDecodeAuto extends OpMode {
 
     @Override
     public void loop() {
+        robot.clearCache();
+
         robot.updateDrivetrain();
 
         stateMachine();

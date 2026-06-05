@@ -32,14 +32,16 @@ public class DecodeTeleOp extends OpMode {
     }
 
     public void loop() {
-            robot.updateDrivetrain();
+        robot.clearCache();
 
-            localizationLogic();
-            drivetrainLogic();
-            mechanismLogic();
+        robot.updateDrivetrain();
 
-            robot.telemetryOutput(telemetry);
-            telemetry.update();
+        localizationLogic();
+        drivetrainLogic();
+        mechanismLogic();
+
+        robot.telemetryOutput(telemetry);
+        telemetry.update();
     }
 
     private void localizationLogic() {
