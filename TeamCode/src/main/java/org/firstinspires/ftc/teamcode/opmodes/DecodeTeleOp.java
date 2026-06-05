@@ -16,6 +16,7 @@ public class DecodeTeleOp extends OpMode {
     private boolean relocalizedThisCycle = false;
     private boolean lastDpadLeft = false, lastDpadRight = false;
     private boolean pathAlreadyFollowed = false;
+    boolean shooting = false;
 
     private enum DriveMode { MANUAL, SHOOT, PARK }
     private DriveMode driveMode = DriveMode.MANUAL;
@@ -80,7 +81,7 @@ public class DecodeTeleOp extends OpMode {
         if (gamepad1.y) driveMode = DriveMode.SHOOT;
 
         // Manual override
-        if (Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) {
+        if ((Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) && driveMode != DriveMode.MANUAL) {
             driveMode = DriveMode.MANUAL;
             robot.startTeleopDrive();
         }
@@ -145,9 +146,10 @@ public class DecodeTeleOp extends OpMode {
     }
 
     private void mechanismLogic() {
-        if (gamepad2.right_trigger > 0.1) {
-            if (robot.isReadyToShoot()) {
+        if (gamepad2.right_trigger > 0.1 || gamepad2.right_bumper) {
+            if (robot.isReadyToShoot() || shooting || gamepad2.right_bumper) {
                 robot.shoot();
+                shooting = true;
             } else {
                 robot.spinUp();
             }
@@ -162,6 +164,8 @@ public class DecodeTeleOp extends OpMode {
             else if (gamepad2.y) shooterRPM = 1700;
 
             robot.customMechSpeeds(intakePower, transferPower, shooterRPM);
+
+            shooting = false;
         }
     }
 }
