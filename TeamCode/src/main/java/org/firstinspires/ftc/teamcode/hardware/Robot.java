@@ -39,9 +39,9 @@ public class Robot {
             return getElapsed() >= seconds;
         }
     }
-    private final double AIM_KP = 0.020;
+    private final double AIM_KP = 0.030;
     private final double AIM_KF = 0.015;
-    private final double MAX_TURN = 0.5;
+    private final double MAX_TURN = 0.6;
     private Pose goalPose;
     private Pose relocalizationPose;
     private long lastLoopTime = 0;
@@ -149,16 +149,16 @@ public class Robot {
     public void intake(double speed) {
         intakeTransfer.setIntakePower(speed);
         intakeTransfer.setTransferPower(speed);
-        shooter.setTargetVelocity(-600);
+        shooter.setTargetVelocity(-1800);
     }
     public void prepareSpinUp() {
         intakeTransfer.setIntakePower(0);
-        intakeTransfer.setTransferPower(-0.5);
-        shooter.setTargetVelocity(-600);
+        intakeTransfer.setTransferPower(-0.2);
+        shooter.setTargetVelocity(-1800);
     }
     public void spinUp() {
         intakeTransfer.setIntakePower(0);
-        intakeTransfer.setTransferPower(-0.5);
+        intakeTransfer.setTransferPower(-0.2);
         shooter.setTargetVelocity(shooter.getNeededVelocity(localization.getDistanceToPose(goalPose)));
     }
     public void shoot() {
@@ -179,8 +179,8 @@ public class Robot {
 
     public boolean isReadyToShoot() {
         if(
-                Math.abs(shooter.getVelocityError()) >= 50 ||
-                Math.abs(localization.getAngleToPose(goalPose)) >= 2 ||
+                Math.abs(shooter.getVelocityError()) >= 60 ||
+                Math.abs(localization.getAngleToPose(goalPose)) >= 2.5 ||
                 Math.abs(localization.getAngularVelocity()) >= 30
         ) {
             return false;
