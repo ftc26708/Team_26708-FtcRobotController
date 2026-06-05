@@ -16,7 +16,7 @@ public class Shooter {
         this.leftShooter = leftShooter;
         this.rightShooter = rightShooter;
 
-        PIDFCoefficients coefficients = new PIDFCoefficients(90.0, 0.02, 2.5, 13.2);
+        PIDFCoefficients coefficients = new PIDFCoefficients(120.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -44,7 +44,7 @@ public class Shooter {
     public double getNeededVelocity(double distance) {
         double A = 0.033;
         double B = 0;
-        double C = 1045;
+        double C = 980;
         return ((A * Math.pow(distance, 2)) + (B * distance) + C);
     }
 
