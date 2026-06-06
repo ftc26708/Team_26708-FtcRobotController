@@ -16,7 +16,7 @@ public class Shooter {
         this.leftShooter = leftShooter;
         this.rightShooter = rightShooter;
 
-        PIDFCoefficients coefficients = new PIDFCoefficients(120.0, 0.02, 2.5, 13.2);
+        PIDFCoefficients coefficients = new PIDFCoefficients(150.0, 0.02, 2.5, 13.2);
         DcMotorEx[] shooters = {leftShooter, rightShooter};
         for (DcMotorEx motor : shooters) {
             motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
