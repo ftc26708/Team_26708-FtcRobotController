@@ -94,13 +94,19 @@ public class DecodeTeleOp extends OpMode {
 
         switch (driveMode) {
             case MANUAL:
-                double speedMult = 0.30;
-                if (gamepad1.left_stick_button || gamepad1.right_stick_button) speedMult = 1.0;
-                else if (gamepad1.left_bumper || gamepad1.right_bumper) speedMult = 0.15;
+                double translationSpeedMult = 0.30;
+                double rotationSpeedMult = 0.30;
 
-                double forward = -gamepad1.left_stick_y * speedMult;
-                double strafe = -gamepad1.left_stick_x * speedMult;
-                double turn = -gamepad1.right_stick_x * speedMult;
+                if (gamepad1.left_bumper || gamepad1.right_bumper) {
+                    translationSpeedMult = 0.15;
+                    rotationSpeedMult = 0.15;
+                }
+                if (gamepad1.left_stick_button) { translationSpeedMult = 1.0; }
+                if (gamepad1.right_stick_button) { rotationSpeedMult = 1.0; }
+
+                double forward = -gamepad1.left_stick_y * translationSpeedMult;
+                double strafe = -gamepad1.left_stick_x * translationSpeedMult;
+                double turn = -gamepad1.right_stick_x * rotationSpeedMult;
 
                 if (Robot.DataPasser.currentAlliance == Robot.DataPasser.Alliance.RED) {
                     forward = -forward;
