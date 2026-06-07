@@ -21,6 +21,7 @@ public abstract class BaseDecodeAuto extends OpMode {
                 initState = InitState.SELECT_ALLIANCE;
                 break;
             case SELECT_ALLIANCE:
+                robot.clearCache();
                 telemetry.addLine("LB: BLUE | RB: RED");
                 if (gamepad1.left_bumper) robot.setAlliance(Robot.DataPasser.Alliance.BLUE);
                 else if (gamepad1.right_bumper) robot.setAlliance(Robot.DataPasser.Alliance.RED);
@@ -29,14 +30,17 @@ public abstract class BaseDecodeAuto extends OpMode {
                     initState = InitState.COMPUTE_POSES;
                 break;
             case COMPUTE_POSES:
+                robot.clearCache();
                 computePoses();
                 initState = InitState.BUILD_PATHS;
                 break;
             case BUILD_PATHS:
+                robot.clearCache();
                 buildPaths();
                 initState = InitState.READY;
                 break;
             case READY:
+                robot.clearCache();
                 telemetry.addLine("READY - Press Play");
                 break;
         }

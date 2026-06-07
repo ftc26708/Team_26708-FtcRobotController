@@ -55,11 +55,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
 
     @Override
     protected void computePoses() {
-        // We wrap every blue-side pose in alliancePose() immediately.
-        // This mirrors them for RED if necessary before they are even stored.
+        // Blue alliance base coordinates mirrored via alliancePose()
         startPose = alliancePose(new Pose(15.78, 113.52, Math.toRadians(180)));
-        robot.setStartingPose(startPose);
-
         shootPose = alliancePose(new Pose(60, 84, Math.toRadians(135)));
 
         pickupMiddleSpikeControlPose = alliancePose(new Pose(60, 60));
@@ -148,7 +145,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 .setConstantHeadingInterpolation(shootPose.getHeading())
                 .build();
 
-        robot.setStartingPose(startPose);
         setPathState(PathState.INITIAL);
     }
 
@@ -156,6 +152,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     protected void stateMachine() {
         switch ((PathState) pathState) {
             case INITIAL:
+                robot.setStartingPose(startPose);
+                robot.setPose(startPose);
                 robot.followPath(scorePreload, true);
                 robot.spinUp();
                 setPathState(PathState.MOVE_PRELOAD);

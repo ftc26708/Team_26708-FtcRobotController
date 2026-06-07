@@ -104,8 +104,8 @@ public class DecodeTeleOp extends OpMode {
                 if (gamepad1.left_stick_button) { translationSpeedMult = 1.0; }
                 if (gamepad1.right_stick_button) { rotationSpeedMult = 1.0; }
 
-                double forward = -gamepad1.left_stick_y * translationSpeedMult;
-                double strafe = -gamepad1.left_stick_x * translationSpeedMult;
+                double forward = gamepad1.left_stick_y * translationSpeedMult;
+                double strafe = gamepad1.left_stick_x * translationSpeedMult;
                 double turn = -gamepad1.right_stick_x * rotationSpeedMult;
 
                 if (Robot.DataPasser.currentAlliance == Robot.DataPasser.Alliance.RED) {
