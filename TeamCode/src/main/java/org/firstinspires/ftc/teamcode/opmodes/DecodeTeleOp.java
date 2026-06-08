@@ -99,8 +99,8 @@ public class DecodeTeleOp extends OpMode {
 
         switch (driveMode) {
             case MANUAL:
-                double translationSpeedMult = 0.30;
-                double rotationSpeedMult = 0.30;
+                double translationSpeedMult = 0.50;
+                double rotationSpeedMult = 0.50;
 
                 if (gamepad1.left_bumper || gamepad1.right_bumper) {
                     translationSpeedMult = 0.15;
