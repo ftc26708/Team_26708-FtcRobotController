@@ -53,15 +53,17 @@ public class DecodeTeleOp extends OpMode {
 
         Pose currentPose = robot.getPose();
 
+        if (gamepad1.dpad_up) {
+            robot.setPose(new Pose(currentPose.getX(), currentPose.getY(), Math.toRadians(90)));
+        }
+
         if (gamepad2.dpad_left && !lastDpadLeft) {
             robot.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() + Math.toRadians(0.5)));
         }
         if (gamepad2.dpad_right && !lastDpadRight) {
             robot.setPose(new Pose(currentPose.getX(), currentPose.getY(), currentPose.getHeading() - Math.toRadians(0.5)));
         }
-        if (gamepad2.dpad_up) {
-            robot.setPose(new Pose(currentPose.getX(), currentPose.getY(), Math.toRadians(90)));
-        }
+
         lastDpadLeft = gamepad2.dpad_left;
         lastDpadRight = gamepad2.dpad_right;
 
