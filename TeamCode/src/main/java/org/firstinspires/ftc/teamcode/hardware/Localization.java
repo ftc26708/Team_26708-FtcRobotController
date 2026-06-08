@@ -13,15 +13,15 @@ public class Localization {
     private final Limelight3A limelight;
     private final Follower follower;
     private static final double METERS_TO_INCHES = 39.3701;
-    private static final double MOUNT_HEIGHT = 0.26490; // Meters
+    private static final double MOUNT_HEIGHT = 0.30460; // Meters
     private static final double TARGET_HEIGHT = 0.74930; // Meters
-    private static final double MOUNT_ANGLE = 13.42; // Degrees
+    private static final double MOUNT_ANGLE = 14.74; // Degrees
     private static final double LIMELIGHT_X_OFFSET = 0.154 * METERS_TO_INCHES; // forward, to be measured and changed
     private static final double LIMELIGHT_Y_OFFSET = 0.004 * METERS_TO_INCHES;  // left
-    public final Pose BLUE_GOAL_POSE_AIM = new Pose(6, 138, 0);
-    public final Pose RED_GOAL_POSE_AIM = new Pose(138, 138, 0);
-    public final Pose BLUE_GOAL_POSE_RELOC = new Pose(72 - 55.6425, 72 + 58.3727, 0);
-    public final Pose RED_GOAL_POSE_RELOC = new Pose(72 + 55.6425, 72 + 58.3727, 0);
+    public final Pose BLUE_GOAL_POSE_AIM = new Pose(7, 141.5 - 7, 0);
+    public final Pose RED_GOAL_POSE_AIM = new Pose(141.5 - 7, 141.5 - 7, 0);
+    public final Pose BLUE_GOAL_POSE_RELOC = new Pose(70.75 - 55.6425, 70.75 + 58.3715, 0);
+    public final Pose RED_GOAL_POSE_RELOC = new Pose(70.75 + 55.6425, 70.75 + 58.3715, 0);
     private int pipeline = -1;
 
     public Localization(Follower follower, Limelight3A limelight) {
