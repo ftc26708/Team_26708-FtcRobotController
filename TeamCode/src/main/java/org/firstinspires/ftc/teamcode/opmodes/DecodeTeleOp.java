@@ -82,13 +82,15 @@ public class DecodeTeleOp extends OpMode {
         if (gamepad1.y) driveMode = DriveMode.SHOOT;
 
         // Manual override
-        if ((Math.abs(gamepad1.left_stick_y) > 0.1 || Math.abs(gamepad1.left_stick_x) > 0.1 || Math.abs(gamepad1.right_stick_x) > 0.1) && driveMode != DriveMode.MANUAL) {
+        if ((Math.abs(gamepad1.left_stick_y) > 0 || Math.abs(gamepad1.left_stick_x) > 0 || Math.abs(gamepad1.right_stick_x) > 0) && driveMode != DriveMode.MANUAL) {
             driveMode = DriveMode.MANUAL;
-            robot.startTeleopDrive();
         }
 
         if (prevMode != driveMode) {
             robot.breakPathFollowing();
+            if (driveMode == DriveMode.MANUAL) {
+                robot.startTeleopDrive();
+            }
             pathAlreadyFollowed = false;
         }
 
