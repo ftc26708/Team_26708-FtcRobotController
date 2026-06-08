@@ -167,7 +167,7 @@ public class Robot {
     }
     public void prepareSpinUp() {
         intakeTransfer.positionIntake(-0.125);
-        intakeTransfer.positionIntake(-0.125);
+        intakeTransfer.positionTransfer(-0.125);
         shooter.setTargetVelocity(-600);
     }
     public void spinUp() {
