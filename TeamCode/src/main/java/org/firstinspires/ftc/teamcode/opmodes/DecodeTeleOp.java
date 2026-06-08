@@ -139,8 +139,8 @@ public class DecodeTeleOp extends OpMode {
             case SHOOT:
                 if (robot.isNotPathFollowing() && !pathAlreadyFollowed) {
                     Pose shootPose = (Robot.DataPasser.currentAlliance == Robot.DataPasser.Alliance.RED)
-                            ? new Pose(94.333, 94.333, Math.toRadians(135))
-                            : new Pose(47.167, 94.333, Math.toRadians(45));
+                            ? new Pose(94.333, 94.333, Math.toRadians(45))
+                            : new Pose(47.167, 94.333, Math.toRadians(135));
 
                     followAutomatedPath(shootPose);
                     pathAlreadyFollowed = true;
