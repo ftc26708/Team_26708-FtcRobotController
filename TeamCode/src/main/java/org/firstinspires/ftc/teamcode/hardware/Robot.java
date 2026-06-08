@@ -161,33 +161,33 @@ public class Robot {
 
     // ARTIFACT MOVEMENT
     public void intake(double speed) {
-        intakeTransfer.setIntakePower(speed);
-        intakeTransfer.setTransferPower(speed);
+        intakeTransfer.moveIntake(speed);
+        intakeTransfer.moveTransfer(speed);
         shooter.setTargetVelocity(-1800);
     }
     public void prepareSpinUp() {
-        intakeTransfer.setIntakePower(0);
-        intakeTransfer.setTransferPower(-0.2);
+        intakeTransfer.moveIntake(0);
+        intakeTransfer.moveTransfer(-0.2);
         shooter.setTargetVelocity(-1800);
     }
     public void spinUp() {
-        intakeTransfer.setIntakePower(0);
-        intakeTransfer.setTransferPower(-0.2);
+        intakeTransfer.moveIntake(0);
+        intakeTransfer.moveTransfer(-0.2);
         shooter.setTargetVelocity(shooter.getNeededVelocity(localization.getDistanceToPose(goalPose)));
     }
     public void shoot() {
-        intakeTransfer.setIntakePower(1);
-        intakeTransfer.setTransferPower(1);
+        intakeTransfer.moveIntake(1);
+        intakeTransfer.moveTransfer(1);
         shooter.setTargetVelocity(shooter.getNeededVelocity(localization.getDistanceToPose(goalPose)));
     }
     public void stop() {
-        intakeTransfer.setIntakePower(0);
-        intakeTransfer.setTransferPower(0);
+        intakeTransfer.moveIntake(0);
+        intakeTransfer.moveTransfer(0);
         shooter.setTargetVelocity(0);
     }
     public void customMechSpeeds(double intake, double transfer, double shoot) {
-        intakeTransfer.setIntakePower(intake);
-        intakeTransfer.setTransferPower(transfer);
+        intakeTransfer.moveIntake(intake);
+        intakeTransfer.moveTransfer(transfer);
         shooter.setTargetVelocity(shoot);
     }
 
