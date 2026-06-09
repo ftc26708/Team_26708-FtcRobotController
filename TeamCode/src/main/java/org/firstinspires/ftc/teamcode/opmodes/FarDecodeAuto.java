@@ -31,7 +31,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
     }
 
     private Pose
-            startPose, shootPose, optionalParkPose,
+            shootPose, optionalParkPose,
             spikeMarkControlPose1, spikeMarkControlPose2, spikeMarkControlPose3, spikeMarkEndPose,
             loadingZoneStartPose, loadingZoneEndPose,
             finalPose;
@@ -44,7 +44,6 @@ public class FarDecodeAuto extends BaseDecodeAuto {
     @Override
     protected void computePoses() {
         // Blue alliance base coordinates mirrored via alliancePose()
-        startPose = alliancePose(new Pose(60.000, 7.950, Math.toRadians(180)));
         shootPose = alliancePose(new Pose(60.000, 21.000, Math.toRadians(116)));
 
         loadingZoneStartPose = alliancePose(new Pose(11.000, 21.000, Math.toRadians(20)));
@@ -61,7 +60,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
     }
 
     @Override
-    protected void buildPaths() {
+    protected void buildPaths(Pose startPose) {
         scorePreload = robot.pathBuilder()
                 .addPath(new BezierLine(startPose, shootPose))
                 .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())
@@ -109,8 +108,6 @@ public class FarDecodeAuto extends BaseDecodeAuto {
     protected void stateMachine() {
         switch ((PathState) pathState) {
             case INITIAL:
-                robot.setStartingPose(startPose);
-                robot.setPose(startPose);
                 robot.followPath(scorePreload, true);
                 robot.spinUp();
                 setPathState(PathState.MOVE_PRELOAD);
@@ -216,5 +213,9 @@ public class FarDecodeAuto extends BaseDecodeAuto {
             case IDLE_PARKED:
                 break;
         }
+    }
+
+    protected Pose getStartCalibrationPose() {
+        return new Pose(60.000, 7.950, Math.toRadians(180));
     }
 }

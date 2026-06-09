@@ -7,7 +7,8 @@ import org.firstinspires.ftc.teamcode.hardware.Robot;
 public abstract class BaseDecodeAuto extends OpMode {
     protected Robot robot;
     protected Enum<?> pathState;
-    public enum InitState { HARDWARE, SELECT_ALLIANCE, COMPUTE_POSES, BUILD_PATHS, READY }
+    private Pose calibratedStartPose;
+    public enum InitState { HARDWARE, SELECT_ALLIANCE, CALIBRATE_POSITION, COMPUTE_POSES, BUILD_PATHS, READY }
     private InitState initState = InitState.HARDWARE;
 
     public void init() {}
@@ -22,13 +23,21 @@ public abstract class BaseDecodeAuto extends OpMode {
                 break;
             case SELECT_ALLIANCE:
                 robot.clearCache();
-                telemetry.addLine("LB: BLUE | RB: RED");
+                telemetry.addLine("POSITION IN CALIBRATION POSITION OF THIS AUTO. \nTHEN, PRESS LB FOR BLUE OR RB FOR RED.");
                 if (gamepad1.left_bumper) robot.setAlliance(Robot.DataPasser.Alliance.BLUE);
                 else if (gamepad1.right_bumper) robot.setAlliance(Robot.DataPasser.Alliance.RED);
-
                 if (Robot.DataPasser.currentAlliance != Robot.DataPasser.Alliance.UNKNOWN)
-                    initState = InitState.COMPUTE_POSES;
+                    initState = InitState.CALIBRATE_POSITION;
                 break;
+            case CALIBRATE_POSITION:
+                robot.clearCache();
+                telemetry.addLine("PRESS A WHEN POSITIONED IN THE INTENDED START POSITION.");
+                robot.setPose(alliancePose(getStartCalibrationPose()));
+                robot.updateDrivetrain();
+                if(gamepad1.a) {
+                    calibratedStartPose = robot.getPose();
+                    initState = InitState.COMPUTE_POSES;
+                }
             case COMPUTE_POSES:
                 robot.clearCache();
                 computePoses();
@@ -36,7 +45,7 @@ public abstract class BaseDecodeAuto extends OpMode {
                 break;
             case BUILD_PATHS:
                 robot.clearCache();
-                buildPaths();
+                buildPaths(calibratedStartPose);
                 initState = InitState.READY;
                 break;
             case READY:
@@ -76,6 +85,7 @@ public abstract class BaseDecodeAuto extends OpMode {
     }
 
     protected abstract void computePoses();
-    protected abstract void buildPaths();
+    protected abstract void buildPaths(Pose calibratedStartPose);
     protected abstract void stateMachine();
+    protected abstract Pose getStartCalibrationPose();
 }

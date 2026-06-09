@@ -36,7 +36,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     }
 
     private Pose
-            startPose, shootPose,
+            shootPose,
             pickupMiddleSpikeControlPose, pickupMiddleSpikeConnectorPose, pickupMiddleSpikeEndPose,
             scoreMiddleSpikeControlPose,
             pickupGateControlPose, pickupGateConnectorPose, pickupGateEndPose, pickupGateIntakePose,
@@ -56,7 +56,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     @Override
     protected void computePoses() {
         // Blue alliance base coordinates mirrored via alliancePose()
-        startPose = alliancePose(new Pose(15.78, 113.52, Math.toRadians(180)));
         shootPose = alliancePose(new Pose(60, 84, Math.toRadians(135)));
 
         pickupMiddleSpikeControlPose = alliancePose(new Pose(60, 60));
@@ -81,7 +80,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     }
 
     @Override
-    protected void buildPaths() {
+    protected void buildPaths(Pose startPose) {
         scorePreload = robot.pathBuilder()
                 .addPath(new BezierLine(startPose, shootPose))
                 .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())
@@ -152,8 +151,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     protected void stateMachine() {
         switch ((PathState) pathState) {
             case INITIAL:
-                robot.setStartingPose(startPose);
-                robot.setPose(startPose);
                 robot.followPath(scorePreload, true);
                 robot.spinUp();
                 setPathState(PathState.MOVE_PRELOAD);
@@ -312,5 +309,9 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 robot.stop();
                 break;
         }
+    }
+
+    protected Pose getStartCalibrationPose() {
+        return new Pose(47.17, 133.31, Math.toRadians(180));
     }
 }
