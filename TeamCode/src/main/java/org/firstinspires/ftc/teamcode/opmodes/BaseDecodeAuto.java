@@ -26,18 +26,21 @@ public abstract class BaseDecodeAuto extends OpMode {
                 telemetry.addLine("POSITION IN CALIBRATION POSITION OF THIS AUTO. \nTHEN, PRESS LB FOR BLUE OR RB FOR RED.");
                 if (gamepad1.left_bumper) robot.setAlliance(Robot.DataPasser.Alliance.BLUE);
                 else if (gamepad1.right_bumper) robot.setAlliance(Robot.DataPasser.Alliance.RED);
-                if (Robot.DataPasser.currentAlliance != Robot.DataPasser.Alliance.UNKNOWN)
+                if (Robot.DataPasser.currentAlliance != Robot.DataPasser.Alliance.UNKNOWN) {
                     initState = InitState.CALIBRATE_POSITION;
+                    robot.setPose(alliancePose(getStartCalibrationPose()));
+                }
                 break;
             case CALIBRATE_POSITION:
                 robot.clearCache();
-                telemetry.addLine("PRESS A WHEN POSITIONED IN THE INTENDED START POSITION.");
-                robot.setPose(alliancePose(getStartCalibrationPose()));
                 robot.updateDrivetrain();
+                telemetry.addLine(robot.getPose().toString());
+                telemetry.addLine("PRESS A WHEN POSITIONED IN THE INTENDED START POSITION.");
                 if(gamepad1.a) {
                     calibratedStartPose = robot.getPose();
                     initState = InitState.COMPUTE_POSES;
                 }
+                break;
             case COMPUTE_POSES:
                 robot.clearCache();
                 computePoses();
@@ -50,7 +53,7 @@ public abstract class BaseDecodeAuto extends OpMode {
                 break;
             case READY:
                 robot.clearCache();
-                telemetry.addLine("READY - Press Play");
+                telemetry.addLine("READY! PRESS START TO RUN.");
                 break;
         }
         telemetry.update();

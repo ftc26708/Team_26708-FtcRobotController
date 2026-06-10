@@ -163,17 +163,17 @@ public class Robot {
     public void intake(double speed) {
         intakeTransfer.moveIntake(speed);
         intakeTransfer.moveTransfer(speed);
-        shooter.setTargetVelocity(-600);
+        shooter.setTargetVelocity(-1200);
     }
     public void intakeBackTransfer(double speed) {
         intakeTransfer.moveIntake(speed);
         intakeTransfer.moveTransfer(-0.25 * speed);
-        shooter.setTargetVelocity(-600);
+        shooter.setTargetVelocity(-1200);
     }
     public void prepareSpinUp() {
         intakeTransfer.positionIntake(-0.125);
         intakeTransfer.positionTransfer(-0.125);
-        shooter.setTargetVelocity(-600);
+        shooter.setTargetVelocity(-1200);
     }
     public void spinUp() {
         intakeTransfer.moveIntake(-0.125);

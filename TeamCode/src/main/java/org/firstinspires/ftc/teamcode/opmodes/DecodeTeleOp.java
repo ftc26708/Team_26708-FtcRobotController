@@ -178,7 +178,7 @@ public class DecodeTeleOp extends OpMode {
             double transferPower = gamepad2.left_bumper ? -1.0 : (gamepad2.left_trigger);
 
             double shooterRPM = 0;
-            if (gamepad2.a) shooterRPM = -600;
+            if (gamepad2.a) shooterRPM = -1200;
             else if (gamepad2.b) shooterRPM = 1200;
             else if (gamepad2.x) shooterRPM = 1350;
             else if (gamepad2.y) shooterRPM = 1700;

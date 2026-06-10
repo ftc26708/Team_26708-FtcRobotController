@@ -42,6 +42,11 @@ public class FarDecodeAuto extends BaseDecodeAuto {
             scoreFinalPark;
 
     @Override
+    protected Pose getStartCalibrationPose() {
+        return new Pose(47.17, 8.19, Math.toRadians(180));
+    }
+
+    @Override
     protected void computePoses() {
         // Blue alliance base coordinates mirrored via alliancePose()
         shootPose = alliancePose(new Pose(60.000, 21.000, Math.toRadians(116)));
@@ -102,6 +107,11 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 .build();
 
         setPathState(PathState.INITIAL);
+    }
+
+    @Override
+    public void start() {
+        pathState = NearDecodeAuto.PathState.INITIAL;
     }
 
     @Override
@@ -213,9 +223,5 @@ public class FarDecodeAuto extends BaseDecodeAuto {
             case IDLE_PARKED:
                 break;
         }
-    }
-
-    protected Pose getStartCalibrationPose() {
-        return new Pose(60.000, 7.950, Math.toRadians(180));
     }
 }
