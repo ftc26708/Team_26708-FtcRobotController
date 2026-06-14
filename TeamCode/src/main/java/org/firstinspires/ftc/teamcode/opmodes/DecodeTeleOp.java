@@ -99,12 +99,12 @@ public class DecodeTeleOp extends OpMode {
 
         switch (driveMode) {
             case MANUAL:
-                double translationSpeedMult = 0.50;
-                double rotationSpeedMult = 0.50;
+                double translationSpeedMult = 0.40;
+                double rotationSpeedMult = 0.40;
 
                 if (gamepad1.left_bumper || gamepad1.right_bumper) {
-                    translationSpeedMult = 0.15;
-                    rotationSpeedMult = 0.15;
+                    translationSpeedMult = 0.25;
+                    rotationSpeedMult = 0.25;
                 }
                 if (gamepad1.left_stick_button) { translationSpeedMult = 1.0; }
                 if (gamepad1.right_stick_button) { rotationSpeedMult = 1.0; }
@@ -118,7 +118,7 @@ public class DecodeTeleOp extends OpMode {
                     strafe = -strafe;
                 }
 
-                if (gamepad2.right_trigger > 0.1) {
+                if (gamepad2.right_trigger > 0.1 || gamepad2.right_stick_y < -0.25) {
                     robot.autoAimDrive(forward, strafe);
                 } else {
                     robot.manualDrive(forward, strafe, turn);
@@ -158,8 +158,8 @@ public class DecodeTeleOp extends OpMode {
     }
 
     private void mechanismLogic() {
-        if (gamepad2.right_trigger > 0.1 || gamepad2.right_bumper) {
-            if (robot.isReadyToShoot() || shooting || gamepad2.right_bumper) {
+        if (gamepad2.right_trigger > 0.1 || gamepad2.right_bumper || gamepad2.right_stick_button) {
+            if (((robot.isReadyToShoot() || shooting) && !gamepad2.right_stick_button) || gamepad2.right_bumper) {
                 robot.shoot();
                 shooting = true;
             } else {
@@ -186,6 +186,7 @@ public class DecodeTeleOp extends OpMode {
             robot.customMechSpeeds(intakePower, transferPower, shooterRPM);
 
             shooting = false;
+            spinningUp = false;
         }
     }
 }

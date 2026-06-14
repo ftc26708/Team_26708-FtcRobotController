@@ -41,13 +41,6 @@ public class Shooter {
         return getActualVelocity() - targetVelocity;
     }
 
-    public double getNeededVelocity(double distance) {
-        double A = 0.033;
-        double B = 0;
-        double C = 980;
-        return ((A * Math.pow(distance, 2)) + (B * distance) + C);
-    }
-
     public String getTelemetry() {
         return String.format(Locale.US,
                 "T: %.0f | A: %.0f (L: %.0f, R: %.0f) | E: %.0f",
