@@ -213,24 +213,19 @@ public class Robot {
     }
 
     // ARTIFACT MOVEMENT
-    public void intake(double speed) {
-        intakeTransfer.moveIntake(speed);
-        intakeTransfer.moveTransfer(speed);
-        shooter.setTargetVelocity(-1200);
-    }
-    public void intakeBackTransfer(double speed) {
-        intakeTransfer.moveIntake(speed);
-        intakeTransfer.moveTransfer(-0.25 * speed);
+    public void intake(double intakeSpeed, double transferSpeed) {
+        intakeTransfer.moveIntake(intakeSpeed);
+        intakeTransfer.moveTransfer(transferSpeed);
         shooter.setTargetVelocity(-1200);
     }
     public void prepareSpinUp() {
-        intakeTransfer.positionIntake(-0.125);
-        intakeTransfer.positionTransfer(-0.125);
+        intakeTransfer.positionIntake(0);
+        intakeTransfer.positionTransfer(-0.15);
         shooter.setTargetVelocity(-1200);
     }
     public void spinUp() {
-        intakeTransfer.moveIntake(-0.125);
-        intakeTransfer.moveTransfer(-0.125);
+        intakeTransfer.positionIntake(0);
+        intakeTransfer.positionTransfer(-0.15);
         shooter.setTargetVelocity(getNeededRPM());
     }
     public void shoot() {

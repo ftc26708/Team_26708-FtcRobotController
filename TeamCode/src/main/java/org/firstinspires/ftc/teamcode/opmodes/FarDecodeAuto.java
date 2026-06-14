@@ -13,55 +13,57 @@ public class FarDecodeAuto extends BaseDecodeAuto {
 
     public enum PathState {
         INITIAL,
-        MOVE_PRELOAD,
+        PREPARE_PRELOAD,
         SHOOT_PRELOAD,
-        GRAB_SPIKE_MARK,
-        WAIT_SPIKE_MARK,
-        MOVE_SPIKE_MARK,
+        INTAKE_SPIKE_MARK,
+        PREPARE_SPIKE_MARK,
+        WAIT_SPIN_UP_SPIKE_MARK,
         SHOOT_SPIKE_MARK,
-        MOVE_OPTIONAL_PARK,
-        WAIT_OPTIONAL_PARK,
-        START_GRAB_LOADING_ZONE,
-        END_GRAB_LOADING_ZONE,
-        WAIT_LOADING_ZONE,
-        MOVE_LOADING_ZONE,
+        INTAKE_LOADING_ZONE,
+        PREPARE_LOADING_ZONE,
+        WAIT_SPIN_UP_LOADING_ZONE,
         SHOOT_LOADING_ZONE,
         MOVE_FINAL_PARK,
         IDLE_PARKED
     }
 
     private Pose
-            shootPose, optionalParkPose,
-            spikeMarkControlPose1, spikeMarkControlPose2, spikeMarkControlPose3, spikeMarkEndPose,
-            loadingZoneStartPose, loadingZoneEndPose,
+            shootPose,
+            spikeMarkControlPose, spikeMarkConnectorPose, spikeMarkEndPose,
+            loadingZoneControlPose1, loadingZoneControlPose2,
+            loadingZoneConnectorPose, loadingZoneEndPose,
             finalPose;
 
     private PathChain
-            scorePreload, startLoadingZonePickup, endLoadingZonePickup, scoreLoadingZonePickup,
-            scoreOptionalPark, grabSpikeMarkPickup, scoreSpikeMarkPickup,
-            scoreFinalPark;
+            scorePreload,
+            pickupSpikeMark, scoreSpikeMark,
+            pickupLoadingZone, scoreLoadingZone,
+            finalPark;
+
+    long startTime;
+    double timeTaken;
+    int numberOfLoadingZoneCycles = 0;
 
     @Override
     protected Pose getStartCalibrationPose() {
-        return new Pose(47.17, 8.19, Math.toRadians(180));
+        return new Pose(47.17, 8.19, Math.toRadians(-90));
     }
 
     @Override
     protected void computePoses() {
         // Blue alliance base coordinates mirrored via alliancePose()
-        shootPose = alliancePose(new Pose(60.000, 21.000, Math.toRadians(116)));
+        shootPose = alliancePose(new Pose(47.17, 13.00, Math.toRadians(110.16)));
 
-        loadingZoneStartPose = alliancePose(new Pose(11.000, 21.000, Math.toRadians(20)));
-        loadingZoneEndPose = alliancePose(new Pose(11.000, 11.000, Math.toRadians(20)));
+        spikeMarkControlPose = alliancePose(new Pose(55.00, 35.38));
+        spikeMarkConnectorPose = alliancePose(new Pose(43.00, 35.38));
+        spikeMarkEndPose = alliancePose(new Pose(11.50, 36.00, Math.toRadians(0.00)));
 
-        optionalParkPose = alliancePose(new Pose(36.000, 9.000, Math.toRadians(0)));
+        loadingZoneControlPose1 = alliancePose(new Pose(35.00, 44.00));
+        loadingZoneControlPose2 = alliancePose(new Pose(11.50, 38.00));
+        loadingZoneConnectorPose = alliancePose(new Pose(11.50, 30.00, Math.toRadians(30.00)));
+        loadingZoneEndPose = alliancePose(new Pose(11.50, 11.50, Math.toRadians(20.00)));
 
-        spikeMarkControlPose1 = alliancePose(new Pose(60.000, 24.000));
-        spikeMarkControlPose2 = alliancePose(new Pose(60.000, 36.000));
-        spikeMarkControlPose3 = alliancePose(new Pose(36.000, 36.000));
-        spikeMarkEndPose = alliancePose(new Pose(9.000, 36.000, Math.toRadians(0)));
-
-        finalPose = alliancePose(new Pose(54.000, 33.300, Math.toRadians(116)));
+        finalPose = alliancePose(new Pose(24.00, 16.00, Math.toRadians(0.00)));
     }
 
     @Override
@@ -71,59 +73,54 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 .setLinearHeadingInterpolation(startPose.getHeading(), shootPose.getHeading())
                 .build();
 
-        startLoadingZonePickup = robot.pathBuilder()
-                .addPath(new BezierLine(shootPose, loadingZoneStartPose))
-                .setLinearHeadingInterpolation(shootPose.getHeading(), loadingZoneStartPose.getHeading())
-                .build();
-
-        endLoadingZonePickup = robot.pathBuilder()
-                .addPath(new BezierLine(loadingZoneStartPose, loadingZoneEndPose))
-                .setConstantHeadingInterpolation(loadingZoneEndPose.getHeading())
-                .build();
-
-        scoreLoadingZonePickup = robot.pathBuilder()
-                .addPath(new BezierLine(loadingZoneEndPose, shootPose))
-                .setLinearHeadingInterpolation(loadingZoneEndPose.getHeading(), shootPose.getHeading())
-                .build();
-
-        scoreOptionalPark = robot.pathBuilder()
-                .addPath(new BezierLine(shootPose, optionalParkPose))
-                .setLinearHeadingInterpolation(shootPose.getHeading(), optionalParkPose.getHeading())
-                .build();
-
-        grabSpikeMarkPickup = robot.pathBuilder()
-                .addPath(new BezierCurve(optionalParkPose, spikeMarkControlPose1, spikeMarkControlPose2, spikeMarkControlPose3, spikeMarkEndPose))
+        pickupSpikeMark = robot.pathBuilder()
+                .addPath(new BezierCurve(shootPose, spikeMarkControlPose, spikeMarkConnectorPose))
+                .setLinearHeadingInterpolation(shootPose.getHeading(), spikeMarkConnectorPose.getHeading())
+                .addPath(new BezierLine(spikeMarkConnectorPose, spikeMarkEndPose))
                 .setConstantHeadingInterpolation(spikeMarkEndPose.getHeading())
                 .build();
 
-        scoreSpikeMarkPickup = robot.pathBuilder()
+        scoreSpikeMark = robot.pathBuilder()
                 .addPath(new BezierLine(spikeMarkEndPose, shootPose))
                 .setLinearHeadingInterpolation(spikeMarkEndPose.getHeading(), shootPose.getHeading())
                 .build();
 
-        scoreFinalPark = robot.pathBuilder()
+        pickupLoadingZone = robot.pathBuilder()
+                .addPath(new BezierCurve(shootPose, loadingZoneControlPose1, loadingZoneControlPose2, loadingZoneConnectorPose))
+                .setLinearHeadingInterpolation(shootPose.getHeading(), loadingZoneConnectorPose.getHeading())
+                .addPath(new BezierLine(loadingZoneConnectorPose, loadingZoneEndPose))
+                .setConstantHeadingInterpolation(loadingZoneEndPose.getHeading())
+                .build();
+
+        scoreLoadingZone = robot.pathBuilder()
+                .addPath(new BezierLine(loadingZoneEndPose, shootPose))
+                .setLinearHeadingInterpolation(loadingZoneEndPose.getHeading(), shootPose.getHeading())
+                .build();
+
+        finalPark = robot.pathBuilder()
                 .addPath(new BezierLine(shootPose, finalPose))
                 .setConstantHeadingInterpolation(finalPose.getHeading())
                 .build();
-
-        setPathState(PathState.INITIAL);
     }
 
     @Override
     public void start() {
-        pathState = NearDecodeAuto.PathState.INITIAL;
+        startTime = System.nanoTime();
+        setPathState(PathState.INITIAL);
     }
 
     @Override
     protected void stateMachine() {
         switch ((PathState) pathState) {
             case INITIAL:
-                robot.followPath(scorePreload, true);
                 robot.spinUp();
-                setPathState(PathState.MOVE_PRELOAD);
+                if (Robot.DataPasser.hasElapsed(2)) {
+                    robot.followPath(scorePreload, true);
+                    setPathState(PathState.PREPARE_PRELOAD);
+                }
                 break;
 
-            case MOVE_PRELOAD:
+            case PREPARE_PRELOAD:
                 if (robot.isNotPathFollowing()) {
                     setPathState(PathState.SHOOT_PRELOAD);
                 }
@@ -131,96 +128,101 @@ public class FarDecodeAuto extends BaseDecodeAuto {
 
             case SHOOT_PRELOAD:
                 robot.shoot();
-                if (Robot.DataPasser.hasElapsed(1.5)) {
-                    robot.intake(1);
-                    robot.followPath(startLoadingZonePickup, 0.6, true);
-                    setPathState(PathState.START_GRAB_LOADING_ZONE);
-                }
-                break;
-
-            case START_GRAB_LOADING_ZONE:
-                if (robot.isNotPathFollowing()) {
-                    robot.followPath(endLoadingZonePickup, 0.4, true);
-                    setPathState(PathState.END_GRAB_LOADING_ZONE);
-                }
-                break;
-
-            case END_GRAB_LOADING_ZONE:
-                if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.WAIT_LOADING_ZONE);
-                }
-                break;
-
-            case WAIT_LOADING_ZONE:
                 if (Robot.DataPasser.hasElapsed(0.5)) {
-                    robot.followPath(scoreLoadingZonePickup, true);
-                    setPathState(PathState.MOVE_LOADING_ZONE);
+                    robot.intake(1, 0.5);
+                    robot.followPath(pickupSpikeMark, true);
+                    setPathState(PathState.INTAKE_SPIKE_MARK);
                 }
                 break;
 
-            case MOVE_LOADING_ZONE:
+            case INTAKE_SPIKE_MARK:
                 if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.SHOOT_LOADING_ZONE);
+                    robot.followPath(scoreSpikeMark, true);
+                    robot.prepareSpinUp();
+                    setPathState(PathState.PREPARE_SPIKE_MARK);
                 }
                 break;
 
-            case SHOOT_LOADING_ZONE:
-                robot.shoot();
+            case PREPARE_SPIKE_MARK:
+                if (Robot.DataPasser.hasElapsed(0.35)) {
+                    robot.spinUp();
+                } else {
+                    robot.prepareSpinUp();
+                }
+                if (robot.isNotPathFollowing()) {
+                    setPathState(PathState.SHOOT_SPIKE_MARK);
+                }
+                break;
+
+            case WAIT_SPIN_UP_SPIKE_MARK:
+                robot.spinUp();
                 if (Robot.DataPasser.hasElapsed(1.5)) {
-                    robot.intake(1);
-                    robot.followPath(scoreOptionalPark, true);
-                    setPathState(PathState.MOVE_OPTIONAL_PARK);
-                }
-                break;
-
-            case MOVE_OPTIONAL_PARK:
-                if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.WAIT_OPTIONAL_PARK);
-                }
-                break;
-
-            case WAIT_OPTIONAL_PARK:
-                if (Robot.DataPasser.hasElapsed(3.0)) {
-                    robot.followPath(grabSpikeMarkPickup, 0.6, true);
-                    setPathState(PathState.GRAB_SPIKE_MARK);
-                }
-                break;
-
-            case GRAB_SPIKE_MARK:
-                if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.WAIT_SPIKE_MARK);
-                }
-                break;
-
-            case WAIT_SPIKE_MARK:
-                if (Robot.DataPasser.hasElapsed(0.5)) {
-                    robot.followPath(scoreSpikeMarkPickup, true);
-                    setPathState(PathState.MOVE_SPIKE_MARK);
-                }
-                break;
-
-            case MOVE_SPIKE_MARK:
-                if (robot.isNotPathFollowing()) {
                     setPathState(PathState.SHOOT_SPIKE_MARK);
                 }
                 break;
 
             case SHOOT_SPIKE_MARK:
                 robot.shoot();
+                if (Robot.DataPasser.hasElapsed(0.5)) {
+                    robot.intake(1, 0.5);
+                    robot.followPath(pickupLoadingZone, true);
+                    setPathState(PathState.INTAKE_LOADING_ZONE);
+                }
+                break;
+
+            case INTAKE_LOADING_ZONE:
+                robot.intake(1, 0.5);
+                if (robot.isNotPathFollowing()) {
+                    robot.followPath(scoreLoadingZone, true);
+                    robot.prepareSpinUp();
+                    setPathState(PathState.PREPARE_LOADING_ZONE);
+                }
+                break;
+
+            case PREPARE_LOADING_ZONE:
+                if (Robot.DataPasser.hasElapsed(0.35)) {
+                    robot.spinUp();
+                } else {
+                    robot.prepareSpinUp();
+                }
+                if (robot.isNotPathFollowing()) {
+                    setPathState(PathState.SHOOT_LOADING_ZONE);
+                }
+                break;
+
+            case WAIT_SPIN_UP_LOADING_ZONE:
+                robot.spinUp();
                 if (Robot.DataPasser.hasElapsed(1.5)) {
-                    robot.stop(); // Stops intake/shooters/transfer
-                    robot.followPath(scoreFinalPark, true);
-                    setPathState(PathState.MOVE_FINAL_PARK);
+                    setPathState(PathState.SHOOT_LOADING_ZONE);
+                }
+                break;
+
+
+            case SHOOT_LOADING_ZONE:
+                robot.shoot();
+                if (Robot.DataPasser.hasElapsed(0.5)) {
+                    numberOfLoadingZoneCycles++;
+                    if (numberOfLoadingZoneCycles >= 4) {
+                        robot.stop();
+                        robot.followPath(finalPark, true);
+                        setPathState(PathState.MOVE_FINAL_PARK);
+                    } else {
+                        robot.intake(1, 0.5);
+                        robot.followPath(pickupLoadingZone, true);
+                        setPathState(PathState.INTAKE_LOADING_ZONE);
+                    }
                 }
                 break;
 
             case MOVE_FINAL_PARK:
                 if (robot.isNotPathFollowing()) {
                     setPathState(PathState.IDLE_PARKED);
+                    timeTaken = (System.nanoTime() - startTime) / 1000000000.0;
                 }
                 break;
 
             case IDLE_PARKED:
+                telemetry.addData("Time Finished", timeTaken);
                 break;
         }
     }

@@ -12,7 +12,7 @@ import org.firstinspires.ftc.teamcode.hardware.Robot;
 public class NearDecodeAuto extends BaseDecodeAuto {
     public int numberOfGateCycles = 0;
     public long startTime;
-    public long timeTaken;
+    public double timeTaken;
     public enum PathState {
         INITIAL,
         MOVE_TO_SHOOT_PRELOAD,
@@ -20,8 +20,10 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         PICKUP_MIDDLE_SPIKE,
         MOVE_TO_SHOOT_MIDDLE_SPIKE,
         SHOOT_MIDDLE_SPIKE,
-        MOVE_TO_GATE,
-        WAIT_AND_PICKUP_GATE,
+        MOVE_TO_OPEN_GATE,
+        WAIT_AND_OPEN_GATE,
+        MOVE_TO_INTAKE_GATE,
+        WAIT_AND_INTAKE_GATE,
         MOVE_TO_SHOOT_GATE,
         SHOOT_GATE,
         PICKUP_CLOSE_SPIKE,
@@ -33,13 +35,13 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     private Pose
             firstShootPose, shootPose, finalShootPose,
             middleSpikeControlPose1, middleSpikeControlPose2, middleSpikeEndPose,
-            midwayShootControl, gatePose,
+            midwayShootControl, gatePose, gateIntakePose,
             closeSpikeControlPose, closeSpikeEndPose;
 
     private PathChain
             scorePreload,
             pickupMiddleSpike, scoreMiddleSpike,
-            pickupGate, scoreGate,
+            goToGate, intakeGate, scoreGate,
             pickupCloseSpike, scoreCloseSpike;
 
     @Override
@@ -56,10 +58,11 @@ public class NearDecodeAuto extends BaseDecodeAuto {
 
         middleSpikeControlPose1 = alliancePose(new Pose(49, 76));
         middleSpikeControlPose2 = alliancePose(new Pose(60, 58));
-        middleSpikeEndPose = alliancePose(new Pose(12, 58, Math.toRadians(0)));
+        middleSpikeEndPose = alliancePose(new Pose(11, 58, Math.toRadians(0)));
 
-        midwayShootControl = alliancePose(new Pose(32, 59));
-        gatePose = alliancePose(new Pose(12, 59, Math.toRadians(-30)));
+        midwayShootControl = alliancePose(new Pose(32, 59.5));
+        gatePose = alliancePose(new Pose(12, 59.5, Math.toRadians(-30)));
+        gateIntakePose = alliancePose(new Pose(12, 54, Math.toRadians(0)));
 
         closeSpikeControlPose = alliancePose(new Pose(41, 82.5));
         closeSpikeEndPose = alliancePose(new Pose(17, 82.5, Math.toRadians(0)));
@@ -83,14 +86,19 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 .setLinearHeadingInterpolation(middleSpikeEndPose.getHeading(), shootPose.getHeading(), 0.75)
                 .build();
 
-        pickupGate = robot.pathBuilder()
+        goToGate = robot.pathBuilder()
                 .addPath(new BezierCurve(shootPose, midwayShootControl, gatePose))
                 .setLinearHeadingInterpolation(shootPose.getHeading(), gatePose.getHeading(), 0.5)
                 .build();
 
+        intakeGate = robot.pathBuilder()
+                .addPath(new BezierLine(gatePose, gateIntakePose))
+                .setLinearHeadingInterpolation(gatePose.getHeading(), gateIntakePose.getHeading(), 1, 0.6)
+                .build();
+
         scoreGate = robot.pathBuilder()
-                .addPath(new BezierCurve(gatePose, midwayShootControl, shootPose))
-                .setLinearHeadingInterpolation(gatePose.getHeading(), shootPose.getHeading(), 0.75)
+                .addPath(new BezierCurve(gateIntakePose, midwayShootControl, shootPose))
+                .setLinearHeadingInterpolation(gateIntakePose.getHeading(), shootPose.getHeading(), 0.75)
                 .build();
 
         pickupCloseSpike = robot.pathBuilder()
@@ -129,13 +137,14 @@ public class NearDecodeAuto extends BaseDecodeAuto {
             case SHOOT_PRELOAD:
                 robot.shoot();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
-                    robot.intake(1);
+                    robot.intake(1, 0.5);
                     robot.followPath(pickupMiddleSpike, true);
                     setPathState(PathState.PICKUP_MIDDLE_SPIKE);
                 }
                 break;
 
             case PICKUP_MIDDLE_SPIKE:
+                robot.intake(1, 0.5);
                 if (robot.isNotPathFollowing()) {
                     robot.followPath(scoreMiddleSpike, true);
                     setPathState(PathState.MOVE_TO_SHOOT_MIDDLE_SPIKE);
@@ -143,10 +152,12 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 break;
 
             case MOVE_TO_SHOOT_MIDDLE_SPIKE:
-                if (Robot.DataPasser.hasElapsed(0.35)) {
+                if (Robot.DataPasser.hasElapsed(0.4)) {
                     robot.spinUp();
-                } else {
+                } else if (Robot.DataPasser.hasElapsed(0.2)) {
                     robot.prepareSpinUp();
+                } else {
+                    robot.intake(0, 0);
                 }
                 if (robot.isNotPathFollowing()) {
                     setPathState(PathState.SHOOT_MIDDLE_SPIKE);
@@ -156,30 +167,48 @@ public class NearDecodeAuto extends BaseDecodeAuto {
             case SHOOT_MIDDLE_SPIKE:
                 robot.shoot();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
-                    robot.intake(1);
-                    robot.followPath(pickupGate, true);
-                    setPathState(PathState.MOVE_TO_GATE);
+                    robot.followPath(goToGate, true);
+                    setPathState(PathState.MOVE_TO_OPEN_GATE);
                 }
                 break;
 
-            case MOVE_TO_GATE:
+            case MOVE_TO_OPEN_GATE:
+                robot.intake(1, 0.5);
                 if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.WAIT_AND_PICKUP_GATE);
+                    setPathState(PathState.WAIT_AND_OPEN_GATE);
                 }
                 break;
 
-            case WAIT_AND_PICKUP_GATE:
-                if (Robot.DataPasser.hasElapsed(2)) {
+            case WAIT_AND_OPEN_GATE:
+                robot.intake(1, 0.5);
+                if (Robot.DataPasser.hasElapsed(1.2)) {
+                    robot.followPath(intakeGate, true);
+                    setPathState(PathState.MOVE_TO_INTAKE_GATE);
+                }
+                break;
+
+            case MOVE_TO_INTAKE_GATE:
+                robot.intake(1, 0.5);
+                if (robot.isNotPathFollowing()) {
+                    setPathState(PathState.WAIT_AND_INTAKE_GATE);
+                }
+                break;
+
+            case WAIT_AND_INTAKE_GATE:
+                robot.intake(1, 0.5);
+                if (Robot.DataPasser.hasElapsed(0.6)) {
                     robot.followPath(scoreGate, true);
                     setPathState(PathState.MOVE_TO_SHOOT_GATE);
                 }
                 break;
 
             case MOVE_TO_SHOOT_GATE:
-                if (Robot.DataPasser.hasElapsed(0.35)) {
+                if (Robot.DataPasser.hasElapsed(0.4)) {
                     robot.spinUp();
-                } else {
+                } else if (Robot.DataPasser.hasElapsed(0.2)) {
                     robot.prepareSpinUp();
+                } else {
+                    robot.intake(0, 0);
                 }
                 if (robot.isNotPathFollowing()) {
                     setPathState(PathState.SHOOT_GATE);
@@ -189,19 +218,20 @@ public class NearDecodeAuto extends BaseDecodeAuto {
             case SHOOT_GATE:
                 robot.shoot();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
-                    robot.intake(1);
+                    robot.intake(1, 0.5);
                     numberOfGateCycles++;
                     if (numberOfGateCycles >= 3) {
                         robot.followPath(pickupCloseSpike, true);
                         setPathState(PathState.PICKUP_CLOSE_SPIKE);
                     } else {
-                        robot.followPath(pickupGate, true);
-                        setPathState(PathState.MOVE_TO_GATE);
+                        robot.followPath(goToGate, true);
+                        setPathState(PathState.MOVE_TO_OPEN_GATE);
                     }
                 }
                 break;
 
             case PICKUP_CLOSE_SPIKE:
+                robot.intake(1, 0.5);
                 if (robot.isNotPathFollowing()) {
                     robot.followPath(scoreCloseSpike, true);
                     setPathState(PathState.MOVE_TO_SHOOT_CLOSE_SPIKE);
@@ -209,10 +239,12 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 break;
 
             case MOVE_TO_SHOOT_CLOSE_SPIKE:
-                if (Robot.DataPasser.hasElapsed(0.35)) {
+                if (Robot.DataPasser.hasElapsed(0.4)) {
                     robot.spinUp();
-                } else {
+                } else if (Robot.DataPasser.hasElapsed(0.2)) {
                     robot.prepareSpinUp();
+                } else {
+                    robot.intake(0, 0);
                 }
                 if (robot.isNotPathFollowing()) {
                     setPathState(PathState.SHOOT_CLOSE_SPIKE);
@@ -222,7 +254,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
             case SHOOT_CLOSE_SPIKE:
                 robot.shoot();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
-                    timeTaken = (System.nanoTime() - startTime) / 1000000000;
+                    timeTaken = (System.nanoTime() - startTime) / 1000000000.0;
                     telemetry.addData("Time Finished", timeTaken);
                     setPathState(PathState.FINISHED);
                 }
