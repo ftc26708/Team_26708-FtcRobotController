@@ -61,8 +61,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         middleSpikeEndPose = alliancePose(new Pose(11, 58, Math.toRadians(0)));
 
         midwayShootControl = alliancePose(new Pose(32, 59.5));
-        gatePose = alliancePose(new Pose(12, 59.5, Math.toRadians(-30)));
-        gateIntakePose = alliancePose(new Pose(12, 54, Math.toRadians(0)));
+        gatePose = alliancePose(new Pose(11.75, 59.5, Math.toRadians(-30)));
+        gateIntakePose = alliancePose(new Pose(11.75, 54, Math.toRadians(0)));
 
         closeSpikeControlPose = alliancePose(new Pose(41, 82.5));
         closeSpikeEndPose = alliancePose(new Pose(17, 82.5, Math.toRadians(0)));
@@ -89,6 +89,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         goToGate = robot.pathBuilder()
                 .addPath(new BezierCurve(shootPose, midwayShootControl, gatePose))
                 .setLinearHeadingInterpolation(shootPose.getHeading(), gatePose.getHeading(), 0.5)
+                .setTValueConstraint(0.97)
                 .build();
 
         intakeGate = robot.pathBuilder()

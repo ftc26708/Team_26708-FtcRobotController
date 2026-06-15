@@ -56,12 +56,12 @@ public class FarDecodeAuto extends BaseDecodeAuto {
 
         spikeMarkControlPose = alliancePose(new Pose(55.00, 35.38));
         spikeMarkConnectorPose = alliancePose(new Pose(43.00, 35.38));
-        spikeMarkEndPose = alliancePose(new Pose(11.50, 36.00, Math.toRadians(0.00)));
+        spikeMarkEndPose = alliancePose(new Pose(11.00, 36.00, Math.toRadians(0.00)));
 
         loadingZoneControlPose1 = alliancePose(new Pose(35.00, 44.00));
-        loadingZoneControlPose2 = alliancePose(new Pose(11.50, 38.00));
-        loadingZoneConnectorPose = alliancePose(new Pose(11.50, 30.00, Math.toRadians(30.00)));
-        loadingZoneEndPose = alliancePose(new Pose(11.50, 11.50, Math.toRadians(20.00)));
+        loadingZoneControlPose2 = alliancePose(new Pose(12.00, 38.00));
+        loadingZoneConnectorPose = alliancePose(new Pose(12.00, 30.00, Math.toRadians(40.00)));
+        loadingZoneEndPose = alliancePose(new Pose(12.00, 12.00, Math.toRadians(0.00)));
 
         finalPose = alliancePose(new Pose(24.00, 16.00, Math.toRadians(0.00)));
     }
@@ -89,7 +89,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 .addPath(new BezierCurve(shootPose, loadingZoneControlPose1, loadingZoneControlPose2, loadingZoneConnectorPose))
                 .setLinearHeadingInterpolation(shootPose.getHeading(), loadingZoneConnectorPose.getHeading())
                 .addPath(new BezierLine(loadingZoneConnectorPose, loadingZoneEndPose))
-                .setConstantHeadingInterpolation(loadingZoneEndPose.getHeading())
+                .setConstantHeadingInterpolation(loadingZoneConnectorPose.getHeading())
                 .build();
 
         scoreLoadingZone = robot.pathBuilder()
@@ -150,7 +150,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                     robot.prepareSpinUp();
                 }
                 if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.SHOOT_SPIKE_MARK);
+                    setPathState(PathState.WAIT_SPIN_UP_SPIKE_MARK);
                 }
                 break;
 
@@ -186,7 +186,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                     robot.prepareSpinUp();
                 }
                 if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.SHOOT_LOADING_ZONE);
+                    setPathState(PathState.WAIT_SPIN_UP_LOADING_ZONE);
                 }
                 break;
 
@@ -202,7 +202,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 robot.shoot();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
                     numberOfLoadingZoneCycles++;
-                    if (numberOfLoadingZoneCycles >= 4) {
+                    if (numberOfLoadingZoneCycles >= 3) {
                         robot.stop();
                         robot.followPath(finalPark, true);
                         setPathState(PathState.MOVE_FINAL_PARK);

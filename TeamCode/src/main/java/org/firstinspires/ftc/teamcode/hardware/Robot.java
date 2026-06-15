@@ -341,8 +341,8 @@ public class Robot {
             private static final double X1 = 0.16512 - (0.0635 * Math.sin(THETA_L_RAD));
             private static final double Y1 = 0.33533 + (0.0635 * Math.cos(THETA_L_RAD));
 
-            private static final double I1 = 0.25;
-            private static final double I2 = 0.19;
+            private static final double I1 = 0.2675;
+            private static final double I2 = 0.1905;
             private static final double M1 = 1.22;
             private static final double M2 = 1.72;
 
@@ -350,7 +350,7 @@ public class Robot {
             private static final double COEF_V = Math.sqrt(G / (2.0 * Math.pow(Math.cos(THETA_L_RAD), 2)));
             private static final double RAMP_SLOPE = (I2 - I1) / (M2 - M1);
 
-            private static final double LN_RPM_BASE = Math.log(0.999257);
+            private static final double LN_RPM_BASE = Math.log(0.999674);
 
             /**
              * Calculates the required launch velocity V(x) given a distance in meters x.
@@ -381,15 +381,12 @@ public class Robot {
              * Valid domain: 0.0 <= x < 8.0
              */
             public static double convertVelocityToRpm(double velocity) {
-                if (velocity >= 8.0) {
-                    throw new IllegalArgumentException("Maximum possible velocity is 8 m/s.");
-                }
                 if (velocity < 0) {
                     throw new IllegalArgumentException("Miminum possible velocity is 0 m/s.");
                 }
 
                 // Empirical Desmos-fitted equation
-                double numeratorLogTerm = -(velocity - 9.32042) / 10.11417;
+                double numeratorLogTerm = (velocity - 12.33826) / -10.80454;
                 return Math.log(numeratorLogTerm) / LN_RPM_BASE;
             }
         }
