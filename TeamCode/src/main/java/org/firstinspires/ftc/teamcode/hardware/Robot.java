@@ -113,6 +113,9 @@ public class Robot {
     public Pose getPose() {
         return localization.getOdometryPose();
     }
+    public Vector getVelocity() {
+        return localization.getVelocity();
+    }
 
     // DRIVETRAIN
     public void updateDrivetrain() {

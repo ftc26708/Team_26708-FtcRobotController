@@ -22,8 +22,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         SHOOT_MIDDLE_SPIKE,
         MOVE_TO_OPEN_GATE,
         WAIT_AND_OPEN_GATE,
-        MOVE_TO_INTAKE_GATE,
-        WAIT_AND_INTAKE_GATE,
         MOVE_TO_SHOOT_GATE,
         SHOOT_GATE,
         PICKUP_CLOSE_SPIKE,
@@ -35,13 +33,13 @@ public class NearDecodeAuto extends BaseDecodeAuto {
     private Pose
             firstShootPose, shootPose, finalShootPose,
             middleSpikeControlPose1, middleSpikeControlPose2, middleSpikeEndPose,
-            midwayShootControl, gatePose, gateIntakePose,
+            midwayShootControl, gatePose,
             closeSpikeControlPose, closeSpikeEndPose;
 
     private PathChain
             scorePreload,
             pickupMiddleSpike, scoreMiddleSpike,
-            goToGate, intakeGate, scoreGate,
+            goToGate, scoreGate,
             pickupCloseSpike, scoreCloseSpike;
 
     @Override
@@ -60,9 +58,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         middleSpikeControlPose2 = alliancePose(new Pose(60, 58));
         middleSpikeEndPose = alliancePose(new Pose(11, 58, Math.toRadians(0)));
 
-        midwayShootControl = alliancePose(new Pose(32, 59.5));
-        gatePose = alliancePose(new Pose(11.75, 59.5, Math.toRadians(-30)));
-        gateIntakePose = alliancePose(new Pose(11.75, 54, Math.toRadians(0)));
+        midwayShootControl = alliancePose(new Pose(32, 59));
+        gatePose = alliancePose(new Pose(11, 59, Math.toRadians(-35)));
 
         closeSpikeControlPose = alliancePose(new Pose(41, 82.5));
         closeSpikeEndPose = alliancePose(new Pose(17, 82.5, Math.toRadians(0)));
@@ -89,17 +86,11 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         goToGate = robot.pathBuilder()
                 .addPath(new BezierCurve(shootPose, midwayShootControl, gatePose))
                 .setLinearHeadingInterpolation(shootPose.getHeading(), gatePose.getHeading(), 0.5)
-                .setTValueConstraint(0.97)
-                .build();
-
-        intakeGate = robot.pathBuilder()
-                .addPath(new BezierLine(gatePose, gateIntakePose))
-                .setLinearHeadingInterpolation(gatePose.getHeading(), gateIntakePose.getHeading(), 1, 0.6)
                 .build();
 
         scoreGate = robot.pathBuilder()
-                .addPath(new BezierCurve(gateIntakePose, midwayShootControl, shootPose))
-                .setLinearHeadingInterpolation(gateIntakePose.getHeading(), shootPose.getHeading(), 0.75)
+                .addPath(new BezierCurve(gatePose, midwayShootControl, shootPose))
+                .setLinearHeadingInterpolation(gatePose.getHeading(), shootPose.getHeading(), 0.75)
                 .build();
 
         pickupCloseSpike = robot.pathBuilder()
@@ -175,7 +166,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
 
             case MOVE_TO_OPEN_GATE:
                 robot.intake(1, 0.5);
-                if (robot.isNotPathFollowing()) {
+                if (robot.isNotPathFollowing() || (robot.getVelocity().getMagnitude() < 0.25 && alliancePose(robot.getPose()).getX() < 14)) {
                     setPathState(PathState.WAIT_AND_OPEN_GATE);
                 }
                 break;
@@ -183,21 +174,6 @@ public class NearDecodeAuto extends BaseDecodeAuto {
             case WAIT_AND_OPEN_GATE:
                 robot.intake(1, 0.5);
                 if (Robot.DataPasser.hasElapsed(1.2)) {
-                    robot.followPath(intakeGate, true);
-                    setPathState(PathState.MOVE_TO_INTAKE_GATE);
-                }
-                break;
-
-            case MOVE_TO_INTAKE_GATE:
-                robot.intake(1, 0.5);
-                if (robot.isNotPathFollowing()) {
-                    setPathState(PathState.WAIT_AND_INTAKE_GATE);
-                }
-                break;
-
-            case WAIT_AND_INTAKE_GATE:
-                robot.intake(1, 0.5);
-                if (Robot.DataPasser.hasElapsed(0.6)) {
                     robot.followPath(scoreGate, true);
                     setPathState(PathState.MOVE_TO_SHOOT_GATE);
                 }
