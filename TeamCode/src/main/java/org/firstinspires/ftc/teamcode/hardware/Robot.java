@@ -124,6 +124,21 @@ public class Robot {
     public void manualDrive(double x, double y, double turn) {
         drivetrain.drive(x, y, turn);
     }
+
+    public void snapDrive(double x, double y, double targetHeadingDegrees) {
+        double headingError = targetHeadingDegrees - Math.toDegrees(follower.getHeading());
+        if (headingError > 180) headingError -= 360;
+        if (headingError < -180) headingError += 360;
+
+        double headingAdjustment = (headingError * AIM_KP) +
+                (Math.signum(headingError) * AIM_KF) -
+                Math.toDegrees(follower.getAngularVelocity()) * AIM_KD;
+
+        double clampedTurn = Math.max(-MAX_TURN, Math.min(MAX_TURN, headingAdjustment));
+
+        drivetrain.drive(x, y, clampedTurn);
+    }
+
     public void autoAimDrive(double x, double y) {
         ShootOnTheMove.SOTMResult sotmResult = ShootOnTheMove.calculateSOTM(
                 follower.getPose(),

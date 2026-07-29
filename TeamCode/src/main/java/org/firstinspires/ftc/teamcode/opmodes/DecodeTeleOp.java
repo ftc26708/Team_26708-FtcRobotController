@@ -118,7 +118,10 @@ public class DecodeTeleOp extends OpMode {
                     strafe = -strafe;
                 }
 
-                if (gamepad2.right_trigger > 0.1 || gamepad2.right_stick_y < -0.25) {
+                if (gamepad1.right_trigger > 0.1) {
+                    double snapAngle = (Robot.DataPasser.currentAlliance == Robot.DataPasser.Alliance.RED) ? 205 : -25;
+                    robot.snapDrive(forward, strafe, snapAngle);
+                } else if (gamepad2.right_trigger > 0.1 || gamepad2.right_stick_y < -0.25) {
                     robot.autoAimDrive(forward, strafe);
                 } else {
                     robot.manualDrive(forward, strafe, turn);
