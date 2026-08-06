@@ -12,7 +12,7 @@ public class IntakeTransfer {
         this.intakeMotor = intakeMotor;
         this.transferMotor = transferMotor;
         intakeMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        PIDFCoefficients coefficients = new PIDFCoefficients(30, 0, 0, 15);
+        PIDFCoefficients coefficients = new PIDFCoefficients(15, 0, 0, 5);
         intakeMotor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coefficients);
         transferMotor.setPIDFCoefficients(DcMotorEx.RunMode.RUN_USING_ENCODER, coefficients);
         intakeMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);

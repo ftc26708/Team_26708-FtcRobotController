@@ -237,12 +237,12 @@ public class Robot {
         shooter.setTargetVelocity(-1200);
     }
     public void prepareSpinUp() {
-        intakeTransfer.positionIntake(0);
+        intakeTransfer.moveIntake(0);
         intakeTransfer.positionTransfer(-0.15);
         shooter.setTargetVelocity(-1200);
     }
     public void spinUp() {
-        intakeTransfer.positionIntake(0);
+        intakeTransfer.moveIntake(0);
         intakeTransfer.positionTransfer(-0.15);
         shooter.setTargetVelocity(getNeededRPM());
     }
