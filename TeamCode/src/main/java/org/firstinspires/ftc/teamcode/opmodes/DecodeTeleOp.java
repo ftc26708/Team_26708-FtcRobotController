@@ -40,6 +40,11 @@ public class DecodeTeleOp extends OpMode {
         drivetrainLogic();
         mechanismLogic();
 
+        telemetry.addData("Drive Mode", driveMode);
+        telemetry.addData("G1 RT", gamepad1.right_trigger);
+        telemetry.addData("G2 RT", gamepad2.right_trigger);
+        telemetry.addData("Alliance", Robot.DataPasser.currentAlliance);
+
         robot.telemetryOutput(telemetry);
         telemetry.update();
     }
