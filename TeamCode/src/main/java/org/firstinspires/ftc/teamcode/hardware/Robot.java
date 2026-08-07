@@ -44,8 +44,8 @@ public class Robot {
     }
     private final double AIM_KP = 0.015;
     private final double AIM_KD = 0.0005;
-    private final double AIM_KF = 0.035;
-    final double AIM_K_GEO = 0.0008;
+    private final double AIM_KF = 0.03;
+    private final double AIM_K_GEO = -0.1;
     private final double MAX_TURN = 0.5;
     private Pose goalPose;
     private Pose relocalizationPose;
@@ -116,6 +116,9 @@ public class Robot {
     public Vector getVelocity() {
         return localization.getVelocity();
     }
+    public double getAngularVelocity() {
+        return localization.getAngularVelocity();
+    }
 
     // DRIVETRAIN
     public void updateDrivetrain() {
@@ -152,41 +155,34 @@ public class Robot {
         if (headingError < -180) headingError += 360;
 
         // 2. Feedback loop: Calculate the baseline PDF power to correct position error
-        double headingAdjustment = (headingError * AIM_KP) +
-                (Math.signum(headingError) * AIM_KF) -
+        double headingAdjustment = (headingError * AIM_KP) -
                 Math.toDegrees(follower.getAngularVelocity()) * AIM_KD;
 
-        // 3. PROACTIVE KINEMATIC GEOMETRIC FEEDFORWARD (The Cross-Product Matrix)
+        // 3. Feedforward
         double proactiveTurnPower = 0.0;
 
-        // Grab the virtual goal positions
-        double virtualDist = 0.0254 * sotmResult.virtualGoalPose.distanceFrom(follower.getPose());
+        double rX = follower.getPose().getX() * 0.0254;
+        double rY = follower.getPose().getY() * 0.0254;
 
-        if (virtualDist > 0.1) {
-            // Robot tracking coordinates (converted to meters)
-            double rX = follower.getPose().getX() * 0.0254;
-            double rY = follower.getPose().getY() * 0.0254;
+        double tX = sotmResult.virtualGoalPose.getX() * 0.0254;
+        double tY = sotmResult.virtualGoalPose.getY() * 0.0254;
 
-            // Displacement vector to the virtual goal
-            double dx = (sotmResult.virtualGoalPose.getX()) - rX;
-            double dy = (sotmResult.virtualGoalPose.getY()) - rY;
+        double dx = tX - rX;
+        double dy = tY - rY;
 
-            // Normalize displacement vector to get unit coordinates pointing to target
-            double ux = dx / virtualDist;
-            double uy = dy / virtualDist;
+        double distanceSquared = dx * dx + dy * dy;
 
-            // Robot field-centric velocity vector components (converted to meters/sec)
+        if (distanceSquared > 0.01) {
+
             double vX = follower.getVelocity().getXComponent() * 0.0254;
             double vY = follower.getVelocity().getYComponent() * 0.0254;
 
-            // 2D Cross-Product / Determinant to isolate tangential velocity component
-            double tangentialVelocity = (vX * uy) - (vY * ux);
+            // Exact angular velocity required to track the moving virtual target
+            double requiredOmega =
+                    (dx * vY - dy * vX) / distanceSquared;
 
-            // Required angular tracking speed scales inversely with proximity (omega = v / r)
-            double requiredOmega = tangentialVelocity / virtualDist;
-
-            // Bridge kinematics to direct motor command scale
-            proactiveTurnPower = AIM_K_GEO * requiredOmega;
+            proactiveTurnPower =
+                    AIM_K_GEO * requiredOmega;
         }
 
         // 4. Combine Feedback + Predictive Feedforward (Cross-Product Matrix)
@@ -194,7 +190,7 @@ public class Robot {
         double totalTurnPower = headingAdjustment + proactiveTurnPower;
 
         // 5. Clamp the final combined adjustment
-        double clampedTurn = Math.max(-MAX_TURN, Math.min(MAX_TURN, totalTurnPower));
+        double clampedTurn = Math.max(-MAX_TURN, Math.min(MAX_TURN, totalTurnPower + (Math.signum(totalTurnPower) * AIM_KF)));
 
         // 6. Pass to drivetrain
         drivetrain.drive(x, y, clampedTurn);
