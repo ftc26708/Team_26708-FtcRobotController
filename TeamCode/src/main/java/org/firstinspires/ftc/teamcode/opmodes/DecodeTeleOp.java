@@ -168,7 +168,11 @@ public class DecodeTeleOp extends OpMode {
     private void mechanismLogic() {
         if (gamepad2.right_trigger > 0.1 || gamepad2.right_bumper || gamepad2.right_stick_button) {
             if (((robot.isReadyToShoot() || shooting) && !gamepad2.right_stick_button) || gamepad2.right_bumper) {
-                robot.shoot();
+                if (robot.isFar()) {
+                    robot.shootFar();
+                } else {
+                    robot.shoot();
+                }
                 shooting = true;
             } else {
                 if (!spinningUp) {

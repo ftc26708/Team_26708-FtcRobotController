@@ -47,6 +47,7 @@ public class Robot {
     private final double AIM_KF = 0.03;
     private final double AIM_K_GEO = -0.1;
     private final double MAX_TURN = 0.5;
+    private static double realDist;
     private Pose goalPose;
     private Pose relocalizationPose;
     List<LynxModule> allHubs;
@@ -234,18 +235,26 @@ public class Robot {
     }
     public void prepareSpinUp() {
         intakeTransfer.moveIntake(0);
-        intakeTransfer.positionTransfer(-0.15);
+        intakeTransfer.positionTransfer(-0.2);
         shooter.setTargetVelocity(-1200);
     }
     public void spinUp() {
         intakeTransfer.moveIntake(0);
-        intakeTransfer.positionTransfer(-0.15);
+        intakeTransfer.positionTransfer(-0.2);
         shooter.setTargetVelocity(getNeededRPM());
     }
     public void shoot() {
         intakeTransfer.moveIntake(1);
         intakeTransfer.moveTransfer(1);
         shooter.setTargetVelocity(getNeededRPM());
+    }
+    public void shootFar() {
+        intakeTransfer.moveIntake(0.5);
+        intakeTransfer.moveTransfer(1);
+        shooter.setTargetVelocity(3600);
+    }
+    public boolean isFar() {
+        return realDist > 2.75;
     }
     public void stop() {
         intakeTransfer.moveIntake(0);
@@ -280,7 +289,7 @@ public class Robot {
             double vY = robotVel.getYComponent() * 0.0254;
 
             // Establish real baseline geometric distance to the chosen goal
-            double realDist = Math.hypot(goalXMeters - rX, goalYMeters - rY);
+            realDist = Math.hypot(goalXMeters - rX, goalYMeters - rY);
 
             // Pre-calculate launch angle cosine constant to save CPU cycles
             final double COS_LAUNCH_ANGLE = Math.cos(Math.toRadians(55.86));
@@ -364,7 +373,7 @@ public class Robot {
             private static final double COEF_V = Math.sqrt(G / (2.0 * Math.pow(Math.cos(THETA_L_RAD), 2)));
             private static final double RAMP_SLOPE = (I2 - I1) / (M2 - M1);
 
-            private static final double LN_RPM_BASE = Math.log(0.999674);
+            private static final double LN_RPM_BASE = Math.log(0.996412);
 
             /**
              * Calculates the required launch velocity V(x) given a distance in meters x.
@@ -400,7 +409,7 @@ public class Robot {
                 }
 
                 // Empirical Desmos-fitted equation
-                double numeratorLogTerm = (velocity - 12.33826) / -10.80454;
+                double numeratorLogTerm = (velocity - 6.58665) / -96.79417;
                 return Math.log(numeratorLogTerm) / LN_RPM_BASE;
             }
         }

@@ -127,7 +127,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 break;
 
             case SHOOT_PRELOAD:
-                robot.shoot();
+                robot.shootFar();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
                     robot.intake(1, 0.5);
                     robot.followPath(pickupSpikeMark, true);
@@ -162,7 +162,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
                 break;
 
             case SHOOT_SPIKE_MARK:
-                robot.shoot();
+                robot.shootFar();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
                     robot.intake(1, 0.5);
                     robot.followPath(pickupLoadingZone, true);
@@ -199,7 +199,7 @@ public class FarDecodeAuto extends BaseDecodeAuto {
 
 
             case SHOOT_LOADING_ZONE:
-                robot.shoot();
+                robot.shootFar();
                 if (Robot.DataPasser.hasElapsed(0.5)) {
                     numberOfLoadingZoneCycles++;
                     if (numberOfLoadingZoneCycles >= 3) {

@@ -58,8 +58,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
         middleSpikeControlPose2 = alliancePose(new Pose(60, 58));
         middleSpikeEndPose = alliancePose(new Pose(11, 58, Math.toRadians(0)));
 
-        midwayShootControl = alliancePose(new Pose(32, 58.5));
-        gatePose = alliancePose(new Pose(11, 58.5, Math.toRadians(-35)));
+        midwayShootControl = alliancePose(new Pose(32, 59));
+        gatePose = alliancePose(new Pose(11, 59, Math.toRadians(-35)));
 
         closeSpikeControlPose = alliancePose(new Pose(41, 82.5));
         closeSpikeEndPose = alliancePose(new Pose(17, 82.5, Math.toRadians(0)));
