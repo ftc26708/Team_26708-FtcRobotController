@@ -18,6 +18,7 @@ public class NearDecodeAuto4 extends BaseDecodeAuto {
         MOVE_TO_SHOOT_PRELOAD,
         SHOOT_PRELOAD,
         PICKUP_MIDDLE_SPIKE,
+        GATE_HIT,
         MOVE_TO_SHOOT_MIDDLE_SPIKE,
         SHOOT_MIDDLE_SPIKE,
         MOVE_TO_OPEN_GATE,
@@ -33,13 +34,14 @@ public class NearDecodeAuto4 extends BaseDecodeAuto {
     private Pose
             firstShootPose, shootPose, finalShootPose,
             middleSpikeControlPose1, middleSpikeControlPose2, middleSpikeEndPose,
+            gateHitControlPose, gateHitEndPose,
             midwayShootControl, gatePose,
             closeSpikeControlPose, closeSpikeEndPose;
 
     private PathChain
             scorePreload,
             pickupMiddleSpike, scoreMiddleSpike,
-            goToGate, scoreGate,
+            gateHit, goToGate, scoreGate,
             pickupCloseSpike, scoreCloseSpike;
 
     @Override
@@ -57,6 +59,9 @@ public class NearDecodeAuto4 extends BaseDecodeAuto {
         middleSpikeControlPose1 = alliancePose(new Pose(49, 76));
         middleSpikeControlPose2 = alliancePose(new Pose(60, 58));
         middleSpikeEndPose = alliancePose(new Pose(11, 58, Math.toRadians(0)));
+
+        gateHitControlPose = alliancePose(new Pose(25, 58));
+        gateHitEndPose = alliancePose(new Pose(15, 66, Math.toRadians(0)));
 
         midwayShootControl = alliancePose(new Pose(32, 59));
         gatePose = alliancePose(new Pose(11, 59, Math.toRadians(-35)));
@@ -81,6 +86,12 @@ public class NearDecodeAuto4 extends BaseDecodeAuto {
         scoreMiddleSpike = robot.pathBuilder()
                 .addPath(new BezierCurve(middleSpikeEndPose, midwayShootControl, shootPose))
                 .setLinearHeadingInterpolation(middleSpikeEndPose.getHeading(), shootPose.getHeading(), 0.75)
+                .build();
+
+        gateHit = robot.pathBuilder()
+                .addPath(new BezierCurve(shootPose, gateHitControlPose, gateHitEndPose))
+                .setConstantHeadingInterpolation(gateHitEndPose.getHeading())
+                .setReversed()
                 .build();
 
         goToGate = robot.pathBuilder()
@@ -138,12 +149,19 @@ public class NearDecodeAuto4 extends BaseDecodeAuto {
             case PICKUP_MIDDLE_SPIKE:
                 robot.intake(1, 0);
                 if (robot.isNotPathFollowing()) {
+                    robot.followPath(gateHit, true);
+                    setPathState(PathState.GATE_HIT);
+                }
+                break;
+
+            case GATE_HIT:
+                robot.intake(0, 0);
+                if (robot.isNotPathFollowing()) {
                     robot.followPath(scoreMiddleSpike, true);
                     setPathState(PathState.MOVE_TO_SHOOT_MIDDLE_SPIKE);
                 }
                 break;
 
-                // add gate hit with no intake here
 
             case MOVE_TO_SHOOT_MIDDLE_SPIKE:
                 if (Robot.DataPasser.hasElapsed(0.4)) {

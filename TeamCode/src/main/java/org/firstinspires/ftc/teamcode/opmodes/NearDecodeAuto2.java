@@ -24,6 +24,9 @@ public class NearDecodeAuto2 extends BaseDecodeAuto {
         WAIT_AND_OPEN_GATE,
         MOVE_TO_SHOOT_GATE,
         SHOOT_GATE,
+        PICKUP_FAR_SPIKE,
+        MOVE_TO_SHOOT_FAR_SPIKE,
+        SHOOT_FAR_SPIKE,
         PICKUP_CLOSE_SPIKE,
         MOVE_TO_SHOOT_CLOSE_SPIKE,
         SHOOT_CLOSE_SPIKE,
@@ -34,12 +37,14 @@ public class NearDecodeAuto2 extends BaseDecodeAuto {
             firstShootPose, shootPose, finalShootPose,
             middleSpikeControlPose1, middleSpikeControlPose2, middleSpikeEndPose,
             midwayShootControl, gatePose,
+            farSpikeControlPose1, farSpikeControlPose2, farSpikeEndPose,
             closeSpikeControlPose, closeSpikeEndPose;
 
     private PathChain
             scorePreload,
             pickupMiddleSpike, scoreMiddleSpike,
             goToGate, scoreGate,
+            pickupFarSpike, scoreFarSpike,
             pickupCloseSpike, scoreCloseSpike;
 
     @Override
@@ -60,6 +65,10 @@ public class NearDecodeAuto2 extends BaseDecodeAuto {
 
         midwayShootControl = alliancePose(new Pose(32, 59));
         gatePose = alliancePose(new Pose(11, 59, Math.toRadians(-35)));
+
+        farSpikeControlPose1 = alliancePose(new Pose(60, 69.5));
+        farSpikeControlPose2 = alliancePose(new Pose(60, 34));
+        farSpikeEndPose = alliancePose(new Pose(11, 34, Math.toRadians(0)));
 
         closeSpikeControlPose = alliancePose(new Pose(41, 82.5));
         closeSpikeEndPose = alliancePose(new Pose(17, 82.5, Math.toRadians(0)));
@@ -91,6 +100,17 @@ public class NearDecodeAuto2 extends BaseDecodeAuto {
         scoreGate = robot.pathBuilder()
                 .addPath(new BezierCurve(gatePose, midwayShootControl, shootPose))
                 .setLinearHeadingInterpolation(gatePose.getHeading(), shootPose.getHeading(), 0.75)
+                .build();
+
+        pickupFarSpike = robot.pathBuilder()
+                .addPath(new BezierCurve(shootPose, farSpikeControlPose1, farSpikeControlPose2, farSpikeEndPose))
+                .setTangentHeadingInterpolation()
+                .setReversed()
+                .build();
+
+        scoreFarSpike = robot.pathBuilder()
+                .addPath(new BezierCurve(farSpikeEndPose, shootPose))
+                .setLinearHeadingInterpolation(farSpikeEndPose.getHeading(), shootPose.getHeading(), 0.75)
                 .build();
 
         pickupCloseSpike = robot.pathBuilder()
@@ -207,7 +227,34 @@ public class NearDecodeAuto2 extends BaseDecodeAuto {
                 }
                 break;
 
-                // far spike pickup and score goes here
+            case PICKUP_FAR_SPIKE:
+                robot.intake(1, 0);
+                if (robot.isNotPathFollowing()) {
+                    robot.followPath(scoreFarSpike, true);
+                    setPathState(PathState.MOVE_TO_SHOOT_FAR_SPIKE);
+                }
+                break;
+
+            case MOVE_TO_SHOOT_FAR_SPIKE:
+                if (Robot.DataPasser.hasElapsed(0.4)) {
+                    robot.spinUp();
+                } else if (Robot.DataPasser.hasElapsed(0.2)) {
+                    robot.prepareSpinUp();
+                } else {
+                    robot.intake(0, 0);
+                }
+                if (robot.isNotPathFollowing()) {
+                    setPathState(PathState.SHOOT_FAR_SPIKE);
+                }
+                break;
+
+            case SHOOT_FAR_SPIKE:
+                robot.shoot();
+                if (Robot.DataPasser.hasElapsed(0.5)) {
+                    robot.followPath(pickupFarSpike, true);
+                    setPathState(PathState.PICKUP_CLOSE_SPIKE);
+                }
+                break;
 
             case PICKUP_CLOSE_SPIKE:
                 robot.intake(1, 0);
