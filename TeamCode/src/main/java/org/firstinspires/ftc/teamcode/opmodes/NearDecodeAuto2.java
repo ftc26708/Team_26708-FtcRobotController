@@ -8,8 +8,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.hardware.Robot;
 
-@Autonomous(name = "DECODE Autonomous (Near)", preselectTeleOp = "DECODE TeleOp")
-public class NearDecodeAuto extends BaseDecodeAuto {
+@Autonomous(name = "DECODE Autonomous (Near, 2 gate hits)", preselectTeleOp = "DECODE TeleOp")
+public class NearDecodeAuto2 extends BaseDecodeAuto {
     public int numberOfGateCycles = 0;
     public long startTime;
     public double timeTaken;
@@ -197,7 +197,7 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                 if (Robot.DataPasser.hasElapsed(0.5)) {
                     robot.intake(1, 0.5);
                     numberOfGateCycles++;
-                    if (numberOfGateCycles >= 3) {
+                    if (numberOfGateCycles >= 2) {
                         robot.followPath(pickupCloseSpike, true);
                         setPathState(PathState.PICKUP_CLOSE_SPIKE);
                     } else {
@@ -206,6 +206,8 @@ public class NearDecodeAuto extends BaseDecodeAuto {
                     }
                 }
                 break;
+
+                // far spike pickup and score goes here
 
             case PICKUP_CLOSE_SPIKE:
                 robot.intake(1, 0);
